@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "macros_btn_list_add.html" import btn_lista_adicionar %}
+{% block title %}<title>Clientes — Sistema de gestão de produção e processos</title>{% endblock %}
+
+{% block content %}
+<div class="app-track">
+  <h1 class="main-title">Clientes</h1>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+  <div class="filters">
+    <!-- Buscar -->
+    <div class="input-group">
+      <div class="input-chip"><i data-lucide="search"></i></div>
+      <input id="busca-cli" type="search" placeholder="Buscar cliente…" aria-label="Buscar cliente">
+    </div>
+
+    <!-- ORDENAR (à esquerda do Filtrar) -->
+    <div class="input-group" id="grp-ordenar">
+      <div class="input-chip" aria-hidden="true">
+        <i data-lucide="arrow-up-narrow-wide"></i>
+      </div>
+      <button class="btn" id="sort-field" type="button" aria-haspopup="menu" aria-expanded="false" title="Selecionar campo">
+        <span id="sort-label">Razão Social</span>
+        <i data-lucide="chevron-down" style="margin-left:6px"></i>
+      </button>
+      <button class="input-chip" id="sort-toggle" type="button" aria-label="Alternar direção" title="Alternar ordem">
+        <span id="sort-dir">↑</span>
+      </button>
+    </div>
+
+    <!-- FILTRAR -->
+    <div class="input-group" id="grp-filtro">
+      <button class="input-chip" id="filter-btn" type="button" aria-haspopup="menu" aria-expanded="false">
+        <i data-lucide="filter"></i>
+        <span style="margin-left:6px">Filtrar</span>
+        <span id="filter-badge" class="badge" style="margin-left:6px; display:none;"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="actions">
+    {{ btn_lista_adicionar("Cliente", href=url_for('client_new_page'), id="btn-adicionar-cliente") }}
+  </div>
+  </div>
+
+  <div class="data-scroll-wrap data-scroll-shadow-left data-scroll-shadow-right">
+  <div class="list-header list-header-base cwb clientes">
+      <div class="header-main">
+        <div>Código</div>
+        <div>Razão Social</div>
+        <div>CNPJ</div>
+        <div>Representante</div>
+        <div>Cidade-UF</div>
+      </div>
+      <div class="actions-title">Ações</div>
+    </div>
+    <div id="clientes-list"></div>
+  </div>
+</div>
+
+<p id="sem-dados" style="display:none;margin-top:1rem;color:var(--text-secondary);">
+  Nenhum cliente cadastrado.
+</p>
+
+<!-- ===== Menus/Popovers ===== -->
+<!-- Sort menu -->
+<div id="sort-menu" class="popover" hidden>
+  <div class="menu-title">Classificar por</div>
+  <div class="menu-list" id="sort-fields-list"></div>
+</div>
+
+<!-- Filter menu -->
+<div id="filter-menu" class="popover" hidden>
+  <div class="menu-title">Filtrar por</div>
+  <div id="filter-props" class="pill-row" style="margin-bottom:8px;"></div>
+  <div class="menu-list" id="filter-values"></div>
+  <div class="menu-actions">
+    <button class="btn" id="filter-clear-all" type="button"><i data-lucide="eraser"></i> Limpar tudo</button>
+    <button class="btn primary" id="filter-apply" type="button"><i data-lucide="check"></i> Aplicar</button>
+  </div>
+</div>
+
+<!-- Script inline removido: agora a renderização é centralizada em static/js/app.js (App.Clientes) -->
+{% endblock %}

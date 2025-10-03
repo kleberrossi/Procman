@@ -1,0 +1,10 @@
+{# templates/macros_btn_list_add.html #}
+{% macro btn_lista_adicionar(label="", href="#", id=None, class_name="") -%}
+  <a class="btn primary {{ class_name }}"
+     href="{{ href }}"{% if id %} id="{{ id }}"{% endif %}
+     aria-label="Adicionar {{ label }}"
+     title="Adicionar {{ label }}">
+    <i data-lucide="plus"></i>
+    <span>Adicionar</span>
+  </a>
+{%- endmacro %}

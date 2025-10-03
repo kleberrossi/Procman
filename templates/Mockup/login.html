@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Entrar — Sistema de Embalagens</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- Fonte Inter -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Seu CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/modern-style.css') }}">
+</head>
+<body>
+
+<a class="sr-only-focusable" href="#conteudo">Ir para o conteúdo principal</a>
+
+<main id="conteudo" class="login-page">
+  <div class="login-card">
+    <!-- opcional: logomarca -->
+    <img class="login-logo" src="{{ url_for('static', filename='images/logo.svg') }}" alt="Logo">
+
+    <div class="login-title">Bem-vindo</div>
+    <div class="login-subtitle">Acesse sua conta para continuar</div>
+
+    {% if error %}
+      <div class="flash">{{ error }}</div>
+    {% endif %}
+
+    <form class="login-form" method="post" action="{{ url_for('login') }}">
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" placeholder="voce@empresa.com" required autofocus>
+
+      <label for="password">Senha</label>
+      <input id="password" name="password" type="password" placeholder="••••••••" required>
+
+      <!-- opcional -->
+      <label style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+        <input type="checkbox" name="remember" value="1"> Manter conectado
+      </label>
+
+      <button type="submit">Entrar</button>
+    </form>
+
+    <div class="login-footer">
+      Esqueceu a senha? Fale com o administrador.
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

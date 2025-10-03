@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if mode == 'edit' %}
+    <title>Editar embalagem — Sistema</title>
+  {% elif mode == 'view' %}
+    <title>Ver embalagem — Sistema</title>
+  {% else %}
+    <title>Nova embalagem — Sistema</title>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="app-track">
+  {% set is_view = (mode == 'view') %}
+  {% set is_edit = (mode == 'edit') %}
+  {% set is_new  = (mode == 'new' or not mode) %}
+
+  {% set ro  = 'readonly' if is_view else '' %}
+  {% set dis = 'disabled' if is_view else '' %}
+
+  {# ---- Inits usados pelo app.js (data-init-*) ---- #}
+  {% set imp_form = request.form.get('impresso') %}
+  {% set imp_data = embalagem.get('impresso') if embalagem else '' %}
+  {% set init_imp = '1' if (imp_form == '1' or imp_data in ['1','True','true', True]) else '0' %}
+
+  {% set fita_val = request.form.get('fita_tipo') or (embalagem.get('fita_tipo') if embalagem else '') %}
+  {% set init_fita = '1' if (fita_val and fita_val|lower != 'nenhuma') else '0' %}
+
+  {% set res_val = request.form.get('resistencia_mecanica') or (embalagem.get('resistencia_mecanica') if embalagem else '') %}
+  {% set init_res  = '1' if (res_val|trim != '') else '0' %}
+
+  {% set trans_form = request.form.get('transparencia') %}
+  {% set trans_data = embalagem.get('transparencia') if embalagem else None %}
+  {% set init_trans = '1' if ((trans_form is not none and (trans_form|string)|trim != '') or (trans_data is not none and (trans_data|string)|trim != '')) else '0' %}
+
+  <h1 class="main-title">
+    {% if is_edit %}
+      Editar embalagem
+    {% elif is_view %}
+      Detalhes da embalagem
+    {% else %}
+      Nova embalagem
+    {% endif %}
+  </h1>
+
+  {# Flash do servidor (opcional, além do notice global do base) #}
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+      {% for cat, msg in msgs %}
+        <div class="flash">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  {% if error %}
+    <div class="flash">{{ error }}</div>
+  {% endif %}
+
+  <form id="embalagens-form" method="post"
+        action="{% if is_new %}{{ url_for('embalagens_new_page') }}
+                {% elif is_edit and embalagem %}{{ url_for('embalagens_update', id=embalagem.get('id')) }}
+                {% else %}#{% endif %}"
+        enctype="multipart/form-data"
+        novalidate
+        data-suggest-ncm="{{ suggest_ncm|default('', true) }}">
+
+    <!-- Mini togglebar (checkbox style) -->
+    <div class="mini-togglebar" id="emb-togglebar" {% if is_view %}aria-disabled="true"{% endif %}>
+      {# Impressão #}
+      <div class="tg tg-check" data-key="impresso">
+        <div class="field-chip"><i data-lucide="stamp"></i></div>
+        <div class="tg-label">Impressão</div>
+        <label class="tg-checkwrap" aria-label="Ativar impressão">
+          <input type="checkbox" data-toggle="impresso" value="1" id="impresso_chk" name="impresso_on" {% if init_imp=='1' %}checked{% endif %} {{ dis }}>
+          <span class="check-ui" aria-hidden="true"></span>
+        </label>
+        <input type="hidden" id="impresso_flag" name="impresso" value="{{ '1' if init_imp=='1' else '0' }}">
+      </div>
+      {# Fita #}
+      <div class="tg tg-check" data-key="fita">
+        <div class="field-chip"><i data-lucide="panel-left-dashed"></i></div>
+        <div class="tg-label">Fita</div>
+        <label class="tg-checkwrap" aria-label="Ativar fita">
+          <input type="checkbox" data-toggle="fita" value="1" id="fita_chk" name="fita_on" {% if init_fita=='1' %}checked{% endif %} {{ dis }}>
+          <span class="check-ui" aria-hidden="true"></span>
+        </label>
+        <input type="hidden" id="fita_flag" name="fita_on_flag" value="{{ '1' if init_fita=='1' else '0' }}">
+      </div>
+      {# Resistência #}
+      <div class="tg tg-check" data-key="resistencia">
+        <div class="field-chip"><i data-lucide="shield"></i></div>
+        <div class="tg-label">Resistência</div>
+        <label class="tg-checkwrap" aria-label="Ativar resistência">
+          <input type="checkbox" data-toggle="resistencia" value="1" id="resistencia_chk" name="resistencia_on" {% if init_res=='1' %}checked{% endif %} {{ dis }}>
+          <span class="check-ui" aria-hidden="true"></span>
+        </label>
+        <input type="hidden" id="resistencia_flag" name="resistencia_on_flag" value="{{ '1' if init_res=='1' else '0' }}">
+      </div>
+      {# Transparência #}
+      <div class="tg tg-check" data-key="transparencia">
+        <div class="field-chip"><i data-lucide="sun"></i></div>
+        <div class="tg-label">Transparência</div>
+        <label class="tg-checkwrap" aria-label="Ativar transparência">
+          <input type="checkbox" data-toggle="transparencia" value="1" id="transparencia_chk" name="transparencia_on" {% if init_trans=='1' %}checked{% endif %} {{ dis }}>
+          <span class="check-ui" aria-hidden="true"></span>
+        </label>
+        <input type="hidden" id="transparencia_flag" name="transparencia_on_flag" value="{{ '1' if init_trans=='1' else '0' }}">
+      </div>
+      {# Tratamento #}
+      {% set trat_flag = '1' if (request.form.get('tratamento_dinas') or (embalagem.get('tratamento_dinas') if embalagem else ''))|trim != '' else '0' %}
+      <div class="tg tg-check" data-key="tratamento">
+        <div class="field-chip"><i data-lucide="droplets"></i></div>
+        <div class="tg-label">Tratamento</div>
+        <label class="tg-checkwrap" aria-label="Ativar tratamento">
+          <input type="checkbox" data-toggle="tratamento" value="1" id="tratamento_chk" name="tratamento_on" {% if trat_flag=='1' %}checked{% endif %} {{ dis }}>
+          <span class="check-ui" aria-hidden="true"></span>
+        </label>
+        <input type="hidden" id="tratamento_flag" name="tratamento_on_flag" value="{{ trat_flag }}">
+      </div>
+      {# Vendido #}
+      {# init_vendido: default ligado em novo formulário (sem embalagem e sem POST) #}
+      {% set raw_vendido_form = request.form.get('vendido') %}
+      {% set raw_vendido_db = embalagem.get('vendido') if embalagem else None %}
+      {% if raw_vendido_form is not none %}
+        {% if raw_vendido_form in ['1','True','true',1,True] %}
+          {% set init_vendido = '1' %}
+        {% else %}
+          {% set init_vendido = '0' %}
+        {% endif %}
+      {% elif raw_vendido_db is not none %}
+        {% if raw_vendido_db in ['1','True','true',1,True] %}
+          {% set init_vendido = '1' %}
+        {% else %}
+          {% set init_vendido = '0' %}
+        {% endif %}
+      {% else %}
+        {% set init_vendido = '1' %} {# novo form: ligado #}
+      {% endif %}
+      <div class="tg tg-check" data-key="vendido">
+        <div class="field-chip"><i data-lucide="shopping-cart"></i></div>
+        <div class="tg-label">Vendido</div>
+        <label class="tg-checkwrap" aria-label="Marcar como vendido">
+          <input type="checkbox" data-toggle="vendido" value="1" id="vendido_chk" name="vendido_on" {% if init_vendido=='1' %}checked{% endif %} {{ dis }}>
+          <span class="check-ui" aria-hidden="true"></span>
+        </label>
+        <input type="hidden" id="vendido_flag" name="vendido" value="{{ '1' if init_vendido=='1' else '0' }}">
+      </div>
+    </div>
+
+    <div class="form-cards">
+      <!-- (removido: notice duplicado; agora usamos o slot único em base.html) -->
+      <!-- Código / Revisão -->
+      <div class="form-row">
+        <label class="field-label" for="embalagem_code">Código / Revisão*</label>
+        <div class="field-card split-2" id="card-codrev">
+          <div class="field-chip"><i data-lucide="qr-code"></i></div>
+          <input class="control" type="text" id="embalagem_code" name="embalagem_code"
+                 required placeholder="Ex.: NP-000123"
+                 value="{{ request.form.get('embalagem_code', (embalagem.get('embalagem_code') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+
+          <div class="field-chip"><i data-lucide="repeat-2"></i></div>
+          <input class="control" type="text" id="rev" name="rev"
+                 placeholder="Ex.: R00"
+                 value="{{ request.form.get('rev', (embalagem.get('rev') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+        </div>
+      </div>
+
+      <!-- Cliente (obrigatório apenas se Vendido) -->
+      <div class="form-row" id="row-cliente">
+        <label class="field-label" for="cliente_id">Cliente<span id="cliente-required-asterisk">*</span></label>
+        <div class="field-card" id="card-cliente">
+          <div class="field-chip"><i data-lucide="building-2"></i></div>
+          <select class="control" id="cliente_id" name="cliente_id" {{ 'required' if init_vendido=='1' else '' }} {{ dis }}>
+            <option value="">Selecione…</option>
+            {% for cli in clientes %}
+              {% set optv = (cli.id if cli.id is not none else cli['id']) %}
+              {% set current = request.form.get('cliente_id', (embalagem.get('cliente_id') if embalagem else '')) %}
+              <option value="{{ optv }}" {% if (current|string) == (optv|string) %}selected{% endif %}>
+                {{ cli.razao_social }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Material / Espessura -->
+      <div class="form-row">
+        <label class="field-label" for="material">Material / Espessura (µm)*</label>
+        <div class="field-card split-2" id="card-material">
+          <div class="field-chip"><i data-lucide="layers"></i></div>
+          <input class="control" type="text" id="material" name="material"
+                 required placeholder="Ex.: PEBD, PEAD, BOPP…"
+                 value="{{ request.form.get('material', (embalagem.get('material') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+
+          <div class="field-chip"><i data-lucide="ruler"></i></div>
+          <input class="control" type="number" step="1" min="0" id="espessura_um" name="espessura_um"
+                 placeholder="Ex.: 50"
+                 value="{{ request.form.get('espessura_um', (embalagem.get('espessura_um') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+        </div>
+      </div>
+
+      <!-- NCM (8 dígitos) - sem hint/pill; com máscara e sugestão -->
+      <div class="form-row">
+        <label class="field-label" for="ncm">NCM (8 dígitos)</label>
+        <div class="field-card" id="card-ncm">
+          <div class="field-chip"><i class="lucide" data-lucide="tag"></i></div>
+          <input
+            id="ncm"
+            name="ncm"
+            class="control"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="Ex.: 3923.21.10"
+            pattern="\d{8}|\d{4}\.\d{2}\.\d{2}"
+            value="{{ request.form.get('ncm', (embalagem.get('ncm') if embalagem else '')) }}"
+            data-sugerido="{{ suggest_ncm|default('', true) }}"
+            {{ ro }} {{ dis }}>
+          <!-- Popover de autocomplete (se usado pelo app.js) -->
+          <div id="ncm-menu" class="popover" hidden></div>
+        </div>
+      </div>
+
+      <!-- Dimensões -->
+      <div class="form-row">
+        <label class="field-label">Dimensões L × A (mm)</label>
+        <div class="field-card split-2" id="card-dimensoes">
+          <div class="field-chip"><i data-lucide="arrow-left-right"></i></div>
+          <input class="control" type="number" step="1" min="0" id="largura_mm" name="largura_mm"
+                 placeholder="Largura"
+                 value="{{ request.form.get('largura_mm', (embalagem.get('largura_mm') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+
+          <div class="field-chip"><i data-lucide="arrow-up-down"></i></div>
+          <input class="control" type="number" step="1" min="0" id="altura_mm" name="altura_mm"
+                 placeholder="Altura"
+                 value="{{ request.form.get('altura_mm', (embalagem.get('altura_mm') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+        </div>
+      </div>
+
+      <!-- Sanfona / Aba / Fita -->
+      <div class="form-row">
+        <label class="field-label">Sanfona / Aba / Fita</label>
+  <div class="multi-card-3 is-tight" id="card-trio-sanfona">
+          <div class="field-card" id="card-sanfona">
+            <div class="field-chip"><i data-lucide="chevrons-left-right"></i></div>
+            <input class="control" type="number" step="1" min="0" id="sanfona_mm" name="sanfona_mm"
+                   placeholder="Sanfona (mm)"
+                   value="{{ request.form.get('sanfona_mm', (embalagem.get('sanfona_mm') if embalagem else '')) }}"
+                   {{ ro }} {{ dis }}>
+          </div>
+
+          <div class="field-card" id="card-aba">
+            <div class="field-chip"><i data-lucide="square"></i></div>
+            <input class="control" type="number" step="1" min="0" id="aba_mm" name="aba_mm"
+                   placeholder="Aba (mm)"
+                   value="{{ request.form.get('aba_mm', (embalagem.get('aba_mm') if embalagem else '')) }}"
+                   {{ ro }} {{ dis }}>
+          </div>
+
+          <div class="field-card" id="card-fita">
+            <div class="field-chip"><i data-lucide="panel-left-dashed"></i></div>
+            <input class="control" type="text" id="fita_tipo" name="fita_tipo"
+                   placeholder="Tipo de fita (ex.: nenhuma, simples, dupla)"
+                   value="{{ request.form.get('fita_tipo', (embalagem.get('fita_tipo') if embalagem else '')) }}"
+                   {{ ro }} {{ dis }}>
+          </div>
+        </div>
+      </div>
+
+      <!-- Impressão / Layout -->
+      <div class="form-row">
+        <label class="field-label" for="layout_png">Impressão / Layout</label>
+        <div class="field-card file-attach" id="card-impresso">
+          <div class="field-chip"><i data-lucide="stamp"></i></div>
+
+          <input class="control" type="text" id="layout_png" name="layout_png"
+                 placeholder="Layout (PNG/JPG) – opcional"
+                 value="{{ request.form.get('layout_png', (embalagem.get('layout_png') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+
+          <label class="attach-chip" for="layout_file" id="attach-label">
+            <i data-lucide="paperclip"></i> Anexar
+          </label>
+          <input type="file" id="layout_file" name="layout_file" accept="image/*" style="display:none" {{ dis }}>
+        </div>
+      </div>
+
+  <!-- Transp./resist./tratamento (abreviado para evitar empurrar layout) -->
+      {% set trat_val = request.form.get('tratamento_dinas') or (embalagem.get('tratamento_dinas') if embalagem else '') %}
+      {% set init_trat = '1' if (trat_val|trim != '') else '0' %}
+      <div class="form-row">
+  <label class="field-label">Transp./resist./tratamento</label>
+        <div class="multi-card-3" id="card-trio-tratamento">
+          <div class="field-card" id="card-transparencia">
+            <div class="field-chip"><i data-lucide="sun-medium"></i></div>
+            <input class="control" type="number" step="1" min="0" id="transparencia" name="transparencia"
+                   placeholder="Transparência (%)"
+                   value="{{ request.form.get('transparencia', (embalagem.get('transparencia') if embalagem else '')) }}"
+                   {{ ro }} {{ dis }}>
+          </div>
+          <div class="field-card" id="card-resistencia">
+            <div class="field-chip"><i data-lucide="shield"></i></div>
+            <input class="control" type="text" id="resistencia_mecanica" name="resistencia_mecanica"
+                   placeholder="Alta / Média / Baixa (ou descrição)"
+                   value="{{ request.form.get('resistencia_mecanica', (embalagem.get('resistencia_mecanica') if embalagem else '')) }}"
+                   {{ ro }} {{ dis }}>
+          </div>
+          <div class="field-card" id="card-tratamento">
+            <div class="field-chip"><i data-lucide="droplets"></i></div>
+            <input class="control" type="number" step="0.1" min="0" max="100" id="tratamento_dinas_visible" name="tratamento_dinas_visible"
+                   placeholder="Tratamento (dinas)"
+                   value="{{ trat_val }}" {{ ro }} {{ dis }}>
+          </div>
+        </div>
+      </div>
+
+      <!-- Observações -->
+      <div class="form-row">
+        <label class="field-label" for="observacoes">Observações</label>
+        <div class="field-card" id="card-obs">
+          <div class="field-chip"><i data-lucide="sticky-note"></i></div>
+          <textarea class="control auto-grow" id="observacoes" name="observacoes" rows="1"
+                    placeholder="Notas gerais, especificidades, etc."
+                    {{ ro }} {{ dis }}>{{ request.form.get('observacoes', (embalagem.get('observacoes') if embalagem else '')) }}</textarea>
+        </div>
+      </div>
+
+      <!-- flags dos toggles -->
+      {# Hidden flags já produzidos acima em cada bloco #}
+    </div>
+
+    <div class="form-actions">
+      <a class="btn" href="{{ url_for('embalagens_page') }}"><i data-lucide="chevron-left"></i> Voltar</a>
+      {% if not is_view %}
+        <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar</button>
+      {% else %}
+        {% if embalagem %}
+          <a class="btn" href="{{ url_for('embalagens_edit_page', id=embalagem.get('id')) }}">
+            <i data-lucide="pencil"></i> Editar
+          </a>
+        {% endif %}
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

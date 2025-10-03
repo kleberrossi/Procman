@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}<title>Colaboradores — Sistema de Embalagens</title>{% endblock %}
+{% block content %}
+
+<h1 class="main-title">Colaboradores</h1>
+
+<div class="toolbar">
+  <form method="get" class="filters">
+    <input type="text" name="q" value="{{ request.args.get('q','') }}" placeholder="Buscar colaborador..." />
+  </form>
+  <div class="actions">
+    <a class="btn primary" href="#" id="btnNovoColaborador">
+      <i class="lucide" data-lucide="plus"></i> Novo Colaborador
+    </a>
+  </div>
+</div>
+
+<!-- Cabeçalho da lista -->
+<div class="list-header colaboradores-grid">
+  <div>Nome</div>
+  <div>Função</div>
+  <div>Setor</div>
+  <div>Matrícula</div>
+  <div>Email</div>
+  <div class="right">Ações</div>
+</div>
+
+<!-- Linhas -->
+{% if funcionarios and funcionarios|length > 0 %}
+  {% for f in funcionarios %}
+    <div class="list-row colaboradores-grid">
+      <div class="cell-strong">{{ f.nome or '-' }}</div>
+      <div>{{ f.funcao_nome or '-' }}</div>
+      <div>{{ f.setor or '-' }}</div>
+      <div>{{ f.matricula or '-' }}</div>
+      <div>{{ f.email or '-' }}</div>
+      <div class="row-actions right">
+        <a class="btn" href="#">
+          <i class="lucide" data-lucide="eye"></i> Ver
+        </a>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    Nenhum colaborador cadastrado.
+  </div>
+{% endif %}
+
+<!-- Grid local -->
+<style>
+  .colaboradores-grid{
+    display:grid;
+    grid-template-columns: 1.6fr 1.2fr 1.0fr 1.0fr 1.6fr 0.8fr; /* 6 colunas */
+    gap:12px;
+    align-items:center;
+  }
+  .colaboradores-grid .right{ justify-self:end; }
+  .cell-strong{ font-weight:600; color: var(--text-primary); }
+  .empty-state{ padding:16px; color:var(--text-secondary); }
+</style>
+
+{% endblock %}

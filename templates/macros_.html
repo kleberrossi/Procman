@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}<title>Parceiros — Sistema de Embalagens</title>{% endblock %}
+{% block content %}
+
+<h1 class="main-title">Parceiros</h1>
+
+<div class="toolbar">
+  <form method="get" class="filters">
+    <input type="text" name="q" value="{{ request.args.get('q','') }}" placeholder="Buscar parceiro..." />
+  </form>
+  <div class="actions">
+    <a class="btn primary" href="#" id="btnNovoParceiro">
+      <i class="lucide" data-lucide="plus"></i> Novo Parceiro
+    </a>
+  </div>
+</div>
+
+<!-- Cabeçalho da lista -->
+<div class="list-header parceiros-grid">
+  <div>Razão Social</div>
+  <div>CNPJ</div>
+  <div>Tipo</div>
+  <div>Representante</div>
+  <div>Contato</div>
+  <div class="right">Ações</div>
+</div>
+
+<!-- Linhas -->
+{% if parceiros and parceiros|length > 0 %}
+  {% for p in parceiros %}
+    <div class="list-row parceiros-grid">
+      <div class="cell-strong">{{ p.razao_social or '-' }}</div>
+      <div>{{ p.cnpj or '-' }}</div>
+      <div>{{ p.tipo or '-' }}</div>
+      <div>{{ p.representante or '-' }}</div>
+      <div>
+        {% set contato = p.contato or '' %}
+        {% set tel = p.telefone or '' %}
+        {% set email = p.email or '' %}
+        {{ contato }}
+        {% if tel %} <span class="text-tertiary">•</span> {{ tel }}{% endif %}
+        {% if email %} <span class="text-tertiary">•</span> {{ email }}{% endif %}
+      </div>
+      <div class="row-actions right">
+        <a class="btn" href="#">
+          <i class="lucide" data-lucide="eye"></i> Ver
+        </a>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    Nenhum parceiro cadastrado.
+  </div>
+{% endif %}
+
+<!-- Grid local para manter alinhamento sem interferir em outras páginas -->
+<style>
+  .parceiros-grid{
+    display:grid;
+    grid-template-columns: 2.2fr 1.2fr 0.9fr 1.2fr 1.6fr 0.9fr; /* 6 colunas */
+    gap:12px;
+    align-items:center;
+  }
+  .parceiros-grid .right{ justify-self:end; }
+  .cell-strong{ font-weight:600; color: var(--text-primary); }
+  .empty-state{ padding:16px; color:var(--text-secondary); }
+</style>
+
+{% endblock %}

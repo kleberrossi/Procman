@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == 'edit' %}<title>Editar parceiro — Sistema</title>
+  {% elif mode == 'view' %}<title>Ver parceiro — Sistema</title>
+  {% else %}<title>Novo parceiro — Sistema</title>{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set is_view = (mode == 'view') %}
+{% set is_edit = (mode == 'edit') %}
+{% set is_new  = (mode == 'new' or not mode) %}
+{% set ro = 'readonly' if is_view else '' %}
+{% set dis = 'disabled' if is_view else '' %}
+
+<h1 class="main-title">
+  {% if is_edit %}Editar parceiro{% elif is_view %}Detalhes do parceiro{% else %}Novo parceiro{% endif %}
+</h1>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}
+    {% for cat, msg in msgs %}
+      <div class="flash">{{ msg }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+{% if error %}
+  <div class="flash">{{ error }}</div>
+{% endif %}
+
+<form id="parceiros-form" method="post"
+      action="{{ url_for('parceiros_new_page') if is_new
+                else url_for('parceiros_update', id=parceiro.get('id')) if is_edit and parceiro
+                else '#' }}"
+      novalidate>
+
+  <div class="form-cards">
+
+    <!-- Razão social / CNPJ -->
+    <div class="form-row">
+      <label class="field-label" for="razao_social">Razão social / CNPJ*</label>
+      <div class="field-card split-2" id="card-razao-cnpj">
+        <div class="field-chip"><i data-lucide="building-2"></i></div>
+        <input class="control" type="text" id="razao_social" name="razao_social"
+               required placeholder="Nome da empresa" autocomplete="organization"
+               value="{{ request.form.get('razao_social', (parceiro.get('razao_social') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="fingerprint"></i></div>
+        <input class="control" type="text" inputmode="numeric" id="cnpj" name="cnpj"
+               required placeholder="00.000.000/0000-00" maxlength="18" autocomplete="off"
+               value="{{ request.form.get('cnpj', (parceiro.get('cnpj') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Tipo -->
+    <div class="form-row">
+      <label class="field-label" for="tipo">Tipo</label>
+      <div class="field-card" id="card-tipo">
+        <div class="field-chip"><i data-lucide="briefcase"></i></div>
+        <select class="control" id="tipo" name="tipo" {{ dis }}>
+          {% set current_tipo = request.form.get('tipo', (parceiro.get('tipo') if parceiro else 'fornecedor')) %}
+          {% for opt in ['fornecedor','transportadora','prestador'] %}
+            <option value="{{ opt }}" {% if current_tipo==opt %}selected{% endif %}>{{ opt|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Endereço / Bairro -->
+    <div class="form-row">
+      <label class="field-label" for="endereco">Endereço / Bairro</label>
+      <div class="field-card split-2" id="card-endereco">
+        <div class="field-chip"><i data-lucide="map-pin"></i></div>
+        <input class="control" type="text" id="endereco" name="endereco"
+               placeholder="Rua, número" autocomplete="address-line1"
+               value="{{ request.form.get('endereco', (parceiro.get('endereco') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="land-plot"></i></div>
+        <input class="control" type="text" id="bairro" name="bairro"
+               placeholder="Bairro" autocomplete="address-level3"
+               value="{{ request.form.get('bairro', (parceiro.get('bairro') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- CEP / Cidade / UF -->
+    <div class="form-row">
+      <label class="field-label">CEP / Cidade / UF</label>
+      <div class="field-card split-3-equal" id="card-cep-cidade-uf">
+        <div class="field-chip"><i data-lucide="hash"></i></div>
+        <input class="control" type="text" id="cep" name="cep" inputmode="numeric"
+               placeholder="00000-000" maxlength="9" autocomplete="postal-code"
+               value="{{ request.form.get('cep', (parceiro.get('cep') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="building"></i></div>
+        <input class="control" type="text" id="cidade" name="cidade"
+               placeholder="Cidade" autocomplete="address-level2"
+               value="{{ request.form.get('cidade', (parceiro.get('cidade') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="flag"></i></div>
+        <input class="control" type="text" id="estado" name="estado" maxlength="2"
+               placeholder="UF" autocomplete="address-level1"
+               value="{{ request.form.get('estado', (parceiro.get('estado') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- País / Complemento -->
+    <div class="form-row">
+      <label class="field-label">País / Complemento</label>
+      <div class="field-card split-2" id="card-pais-complemento">
+        <div class="field-chip"><i data-lucide="globe-2"></i></div>
+        <input class="control" type="text" id="pais" name="pais"
+               placeholder="País" autocomplete="country-name"
+               value="{{ request.form.get('pais', (parceiro.get('pais') if parceiro else 'Brasil')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="plus-square"></i></div>
+        <input class="control" type="text" id="complemento" name="complemento"
+               placeholder="Complemento" autocomplete="address-line2"
+               value="{{ request.form.get('complemento', (parceiro.get('complemento') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Contato: Nome / Email / Telefone -->
+    <div class="form-row">
+      <label class="field-label">Contato (Nome/Email/Fone)</label>
+      <div class="field-card split-3-equal" id="card-contato">
+        <div class="field-chip"><i data-lucide="user-2"></i></div>
+        <input class="control" type="text" id="contato_nome" name="contato_nome"
+               placeholder="Nome" autocomplete="name"
+               value="{{ request.form.get('contato_nome', (parceiro.get('contato_nome') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="mail"></i></div>
+        <input class="control" type="email" id="contato_email" name="contato_email"
+               placeholder="email@exemplo.com" autocomplete="email"
+               value="{{ request.form.get('contato_email', (parceiro.get('contato_email') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="phone"></i></div>
+        <input class="control" type="tel" id="contato_telefone" name="contato_telefone"
+               placeholder="(00) 00000-0000" autocomplete="tel"
+               value="{{ request.form.get('contato_telefone', (parceiro.get('contato_telefone') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Representante / Ativo -->
+    <div class="form-row">
+      <label class="field-label">Representante / Ativo</label>
+      <div class="field-card split-2" id="card-repr-ativo">
+        <div class="field-chip"><i data-lucide="id-card"></i></div>
+        <input class="control" type="text" id="representante" name="representante"
+               placeholder="Representante"
+               value="{{ request.form.get('representante', (parceiro.get('representante') if parceiro else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="toggle-right"></i></div>
+        <div class="control" style="display:flex; align-items:center; justify-content:space-between;">
+          <span style="color:var(--text-secondary)">Ativo</span>
+          <div class="seg" aria-label="Ativo" role="group">
+            <button type="button" class="seg-btn" data-toggle="ativo" data-value="0" {{ dis }}>Não</button>
+            <button type="button" class="seg-btn" data-toggle="ativo" data-value="1" {{ dis }}>Sim</button>
+          </div>
+        </div>
+        <input type="hidden" id="ativo" name="ativo" value="1">
+      </div>
+    </div>
+
+    <!-- =========================
+         SERVIÇOS (80% / 20%)
+         ========================= -->
+    <div class="form-row">
+      <label class="field-label">Serviços</label>
+
+      <!-- container com 2 colunas 80/20 -->
+      <div class="svc-row-80-20">
+
+        <!-- ESQUERDA (80%) — Serviços cadastrados -->
+        <div class="svcbox svc-list-box" id="svc-list-box" aria-label="Serviços cadastrados">
+          <div class="field-chip"><i data-lucide="wrench"></i></div>
+          <div id="servicos-chips" class="svc-pills" aria-live="polite"></div>
+          <input type="hidden" id="servicos_json" name="servicos_json"
+                 value="{{ request.form.get('servicos_json', (parceiro.get('servicos_json') if parceiro else '[]')) }}">
+        </div>
+
+        <!-- DIREITA (20%) — Adicionar serviço -->
+        <div class="svcbox svc-add-box" id="svc-add-box" aria-label="Adicionar serviço">
+          <input class="svc-input" id="novo-servico" type="text"
+                 placeholder="Adicionar serviço" {{ dis }}>
+          <button class="svc-add-btn" id="add-servico" type="button" {{ dis }} aria-label="Adicionar">
+            <i data-lucide="plus"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Observações -->
+    <div class="form-row">
+      <label class="field-label" for="observacoes">Observações</label>
+      <div class="field-card" id="card-obs">
+        <div class="field-chip"><i data-lucide="sticky-note"></i></div>
+        <textarea class="control" id="observacoes" name="observacoes" rows="3"
+                  placeholder="Notas gerais, especificidades, etc."
+                  {{ ro }} {{ dis }}>{{ request.form.get('observacoes', (parceiro.get('observacoes') if parceiro else '')) }}</textarea>
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="form-actions">
+      <a class="btn" href="{{ url_for('parceiros_page') }}"><i data-lucide="chevron-left"></i> Voltar</a>
+
+      {% if not is_view %}
+        <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar</button>
+      {% else %}
+        {% if parceiro %}
+          <a class="btn" href="{{ url_for('parceiros_edit_page', id=parceiro.get('id')) }}">
+            <i data-lucide="pencil"></i> Editar
+          </a>
+        {% endif %}
+      {% endif %}
+    </div>
+
+  </div>
+</form>
+
+<!-- ===== CSS LOCAL SOMENTE PARA OS CARDS DE SERVIÇOS ===== -->
+<style>
+  /* grid 80/20 alinhando com a altura dos outros inputs */
+  .svc-row-80-20{
+    display: grid;
+    grid-template-columns: 4fr 1fr;   /* 80% / 20% */
+    gap: 12px;
+    width: 100%;
+  }
+  /* caixinhas com a mesma “carinha”/altura dos outros fields */
+  .svcbox{
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    align-items: center;
+    height: var(--control-h, 44px);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--elevation-1, 0 1px 0 rgba(16,24,40,.02));
+    overflow: hidden; /* garante uma linha só */
+  }
+  .svcbox .field-chip{
+    height: 100%;
+    display: grid;
+    place-items: center;
+    border-right: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+  }
+
+  /* lista de Pills: uma linha só + rolagem horizontal */
+  .svc-pills{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    height: 100%;
+    color: var(--text-tertiary);
+  }
+  .svc-pills .btn.pill{
+    font-size: 12px;              /* menor pra caber sem crescer o card */
+    line-height: 1;
+    padding: 6px 10px;
+  }
+  .svc-pills .btn.pill i.del{
+    margin-left: 6px;
+    opacity: .7;
+  }
+
+  /* card “Adicionar serviço” (sem ícone à esquerda, chip + à direita) */
+  .svc-add-box{
+    grid-template-columns: 1fr auto;
+    padding-right: 6px;
+  }
+  .svc-add-box .field-chip{ display:none; } /* não usamos chip esquerdo nesse */
+  .svc-input{
+    height: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0 12px;
+    font: inherit;
+  }
+  .svc-input::placeholder{ color: var(--text-tertiary); }
+  .svc-add-btn{
+    height: 28px;
+    min-width: 28px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    display: inline-grid;
+    place-items: center;
+    padding: 0 8px;
+    cursor: pointer;
+  }
+  .svc-add-btn[disabled]{ opacity:.6; cursor:not-allowed; }
+</style>
+
+<script>
+  function icones(){ if (window.lucide) lucide.createIcons(); }
+
+  // ===== CNPJ mask =====
+  function formatCNPJView(val){
+    const d = String(val||'').replace(/\D/g,'').slice(0,14);
+    if (d.length <= 2) return d;
+    if (d.length <= 5) return d.slice(0,2)+'.'+d.slice(2);
+    if (d.length <= 8) return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5);
+    if (d.length <= 12) return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5,8)+'/'+d.slice(8);
+    return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5,8)+'/'+d.slice(8,12)+'-'+d.slice(12,14);
+  }
+
+  // ===== Toggle "Ativo" =====
+  function setAtivo(val){
+    document.getElementById('ativo').value = String(val);
+    document.querySelectorAll('.seg-btn[data-toggle="ativo"]').forEach(b=>{
+      b.classList.toggle('active', b.getAttribute('data-value') === String(val));
+    });
+  }
+
+  // ===== Serviços (estado e render) =====
+  let SERVICOS = [];
+
+  function renderServicos(){
+    const cont = document.getElementById('servicos-chips');
+    const hidden = document.getElementById('servicos_json');
+    cont.innerHTML = '';
+    if (!Array.isArray(SERVICOS)) SERVICOS = [];
+    SERVICOS = SERVICOS.map(s => String(s).trim()).filter(Boolean);
+    hidden.value = JSON.stringify(SERVICOS);
+
+    if (SERVICOS.length === 0){
+      const span = document.createElement('span');
+      span.textContent = 'Nenhum serviço cadastrado.';
+      cont.appendChild(span);
+      icones();
+      return;
+    }
+
+    {% if is_view %}
+      // modo visualização – sem “x”
+      for (const s of SERVICOS){
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'btn pill';
+        chip.textContent = s;
+        chip.disabled = true;
+        cont.appendChild(chip);
+      }
+    {% else %}
+      // modo edição – com “x”
+      for (const s of SERVICOS){
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'btn pill';
+        chip.innerHTML = `<span class="ellipsis" title="${s.replace(/"/g,'&quot;')}">${s}</span><i class="del" data-lucide="x"></i>`;
+        chip.addEventListener('click', (ev)=>{
+          if (ev.target.closest('.del')){
+            SERVICOS = SERVICOS.filter(x=>x!==s);
+            renderServicos();
+          }
+        });
+        cont.appendChild(chip);
+      }
+    {% endif %}
+    icones();
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    icones();
+
+    // UF uppercase
+    const uf = document.getElementById('estado');
+    if (uf && !uf.readOnly && !uf.disabled){
+      uf.addEventListener('input', (e)=>{ e.target.value = String(e.target.value).toUpperCase().slice(0,2); });
+    }
+
+    // CNPJ mask
+    const cnpj = document.getElementById('cnpj');
+    if (cnpj){
+      cnpj.value = formatCNPJView(cnpj.value);
+      {% if not is_view %}
+      cnpj.addEventListener('input', ()=>{
+        const pos = cnpj.selectionStart, before = cnpj.value;
+        cnpj.value = formatCNPJView(cnpj.value);
+        const delta = cnpj.value.length - before.length;
+        cnpj.setSelectionRange(Math.max(0, pos+delta), Math.max(0, pos+delta));
+      });
+      {% endif %}
+    }
+
+    // Toggle Ativo (inicial)
+    const ativoRaw = "{{ request.form.get('ativo', (parceiro.get('ativo') if parceiro else '1')) }}";
+    const ativoVal = (String(ativoRaw) === '1' || String(ativoRaw).toLowerCase() === 'true') ? 1 : 0;
+    setAtivo(ativoVal);
+
+    {% if not is_view %}
+    document.body.addEventListener('click', (ev)=>{
+      const b = ev.target.closest('.seg-btn[data-toggle="ativo"]');
+      if (b && !b.disabled) setAtivo(Number(b.getAttribute('data-value')));
+    });
+    {% endif %}
+
+    // Serviços: estado inicial
+    try{
+      const initial = JSON.parse(document.getElementById('servicos_json').value || '[]');
+      if (Array.isArray(initial)) SERVICOS = initial;
+    }catch(e){ SERVICOS = []; }
+    renderServicos();
+
+    {% if not is_view %}
+    // Adicionar serviço: Enter ou clique no "+"
+    const inp = document.getElementById('novo-servico');
+    const btn = document.getElementById('add-servico');
+
+    function addServico(){
+      const v = String(inp.value||'').trim();
+      if (!v) return;
+      if (!SERVICOS.includes(v)) SERVICOS.push(v);
+      inp.value = '';
+      renderServicos();
+      inp.focus();
+    }
+
+    inp?.addEventListener('keydown', (e)=>{ if (e.key === 'Enter'){ e.preventDefault(); addServico(); }});
+    btn?.addEventListener('click', addServico);
+
+    // manter máscara do CNPJ (back usa only_digits)
+    document.getElementById('parceiros-form').addEventListener('submit', ()=>{ if (cnpj) cnpj.value = cnpj.value; });
+    {% endif %}
+  });
+</script>
+{% endblock %}

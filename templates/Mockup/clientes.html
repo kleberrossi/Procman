@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+{% from "macros_btn_list_add.html" import btn_lista_adicionar %}
+{% block title %}<title>Clientes — Sistema de gestão de produção e processos</title>{% endblock %}
+
+{% block content %}
+<h1 class="main-title">Clientes</h1>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="filters">
+    <!-- Buscar -->
+    <div class="input-group">
+      <div class="input-chip"><i data-lucide="search"></i></div>
+      <input id="busca-cli" type="search" placeholder="Buscar cliente…" aria-label="Buscar cliente">
+    </div>
+
+    <!-- ORDENAR (à esquerda do Filtrar) -->
+    <div class="input-group" id="grp-ordenar">
+      <!-- chip à esquerda (cinza) -->
+      <div class="input-chip" aria-hidden="true">
+        <i data-lucide="arrow-up-narrow-wide"></i>
+      </div>
+      <!-- botão de campo (largura fluida) -->
+      <button class="btn" id="sort-field" type="button" aria-haspopup="menu" aria-expanded="false" title="Selecionar campo">
+        <span id="sort-label">Razão Social</span>
+        <i data-lucide="chevron-down" style="margin-left:6px"></i>
+      </button>
+      <!-- toggle asc/desc -->
+      <button class="input-chip" id="sort-toggle" type="button" aria-label="Alternar direção" title="Alternar ordem">
+        <span id="sort-dir">↑</span>
+      </button>
+    </div>
+
+    <!-- FILTRAR -->
+    <div class="input-group" id="grp-filtro">
+      <button class="input-chip" id="filter-btn" type="button" aria-haspopup="menu" aria-expanded="false">
+        <i data-lucide="filter"></i>
+        <span style="margin-left:6px">Filtrar</span>
+        <span id="filter-badge" class="badge" style="margin-left:6px; display:none;"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="actions">
+    {{ btn_lista_adicionar("Cliente", href=url_for('client_new_page'), id="btn-adicionar-cliente") }}
+  </div>
+</div>
+
+<!-- Header da lista -->
+<div class="list-header cwb-v2 cwb-v2-root clientes-v2">
+  <div class="header-main">
+    <div>Razão Social</div>
+    <div>CNPJ</div>
+    <div>Representante</div>
+    <div>Cidade</div>
+    <div>UF</div>
+  </div>
+  <div class="actions-title">Ações</div>
+</div>
+
+<!-- Container da lista -->
+<div id="clientes-list"></div>
+
+<p id="sem-dados" style="display:none;margin-top:1rem;color:var(--text-secondary);">
+  Nenhum cliente cadastrado.
+</p>
+
+<!-- ===== Menus/Popovers ===== -->
+<!-- Sort menu -->
+<div id="sort-menu" class="popover" hidden>
+  <div class="menu-title">Classificar por</div>
+  <div class="menu-list" id="sort-fields-list"></div>
+</div>
+
+<!-- Filter menu -->
+<div id="filter-menu" class="popover" hidden>
+  <div class="menu-title">Filtrar por</div>
+  <div id="filter-props" class="pill-row" style="margin-bottom:8px;"></div>
+  <div class="menu-list" id="filter-values"></div>
+  <div class="menu-actions">
+    <button class="btn" id="filter-clear-all" type="button"><i data-lucide="eraser"></i> Limpar tudo</button>
+    <button class="btn primary" id="filter-apply" type="button"><i data-lucide="check"></i> Aplicar</button>
+  </div>
+</div>
+
+<script>
+  function icones(){ if (window.lucide) lucide.createIcons(); }
+  const safe = (v) => (v == null ? '' : String(v));
+
+  const FIELDS = [
+    { key:'razao',         label:'Razão Social',  get:c=>safe(c.razao_social) },
+    { key:'cnpj',          label:'CNPJ',          get:c=>safe(c.cnpj) },
+    { key:'representante', label:'Representante', get:c=>safe(c.representante) },
+    { key:'cidade',        label:'Cidade',        get:c=>safe(c.cidade || c.cidade_nome || c.city) },
+    { key:'uf',            label:'UF',            get:c=>safe(c.estado || c.uf).toUpperCase() },
+  ];
+
+  let CLIENTES_DATA = [];
+  let sortField = 'razao';
+  let sortDir   = 'asc';
+  const filters = { razao:new Set(), cnpj:new Set(), representante:new Set(), cidade:new Set(), uf:new Set() };
+  let filterActiveProp = 'uf';
+
+  const ui = {
+    list: document.getElementById('clientes-list'),
+    vazio: document.getElementById('sem-dados'),
+    sortToggle: document.getElementById('sort-toggle'),
+    sortFieldBtn: document.getElementById('sort-field'),
+    sortMenu: document.getElementById('sort-menu'),
+    sortFieldsList: document.getElementById('sort-fields-list'),
+    sortLabel: document.getElementById('sort-label'),
+    sortDir: document.getElementById('sort-dir'),
+    filterBtn: document.getElementById('filter-btn'),
+    filterMenu: document.getElementById('filter-menu'),
+    filterProps: document.getElementById('filter-props'),
+    filterValues: document.getElementById('filter-values'),
+    filterApply: document.getElementById('filter-apply'),
+    filterClearAll: document.getElementById('filter-clear-all'),
+    filterBadge: document.getElementById('filter-badge'),
+    busca: document.getElementById('busca-cli'),
+  };
+
+  function fieldDef(key){ return FIELDS.find(f=>f.key===key) || FIELDS[0]; }
+  function uniqueValuesFor(key){
+    const get = fieldDef(key).get;
+    const s = new Set();
+    for(const c of CLIENTES_DATA){
+      const v = get(c);
+      if (!v || v === '-') continue;
+      s.add(v);
+    }
+    return Array.from(s).sort((a,b)=>String(a).localeCompare(String(b), 'pt-BR', {sensitivity:'base', numeric:true}));
+  }
+  function updateSortChip(){
+    ui.sortLabel.textContent = fieldDef(sortField).label;
+    ui.sortDir.textContent = (sortDir === 'asc') ? '↑' : '↓';
+  }
+  function updateFilterBadge(){
+    const total = Object.values(filters).reduce((n,set)=>n + set.size, 0);
+    if (total > 0) { ui.filterBadge.style.display='inline-block'; ui.filterBadge.textContent = total; }
+    else { ui.filterBadge.style.display='none'; ui.filterBadge.textContent = ''; }
+  }
+
+  let openPop = null;
+  function openPopover(pop, anchor){
+    const r = anchor.getBoundingClientRect();
+    pop.style.position = 'absolute';
+    pop.style.top  = (window.scrollY + r.bottom + 6) + 'px';
+    pop.style.left = (window.scrollX + r.left) + 'px';
+    pop.hidden = false;
+    openPop = pop;
+    setTimeout(()=>document.addEventListener('click', outsideCloseOnce, { once:true }),0);
+  }
+  function outsideCloseOnce(ev){
+    if (!openPop) return;
+    if (!openPop.contains(ev.target) && !ev.target.closest('#grp-filtro') && !ev.target.closest('#grp-ordenar')){
+      closePopovers();
+    } else {
+      document.addEventListener('click', outsideCloseOnce, { once:true });
+    }
+  }
+  function closePopovers(){ if (ui.sortMenu) ui.sortMenu.hidden = true; if (ui.filterMenu) ui.filterMenu.hidden = true; openPop = null; }
+
+  function renderSortMenu(){
+    ui.sortFieldsList.innerHTML = '';
+    FIELDS.forEach(f=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'menu-item' + (f.key===sortField ? ' active' : '');
+      btn.textContent = f.label;
+      btn.addEventListener('click', ()=>{
+        sortField = f.key;
+        closePopovers();
+        updateSortChip();
+        renderClientes(getFilteredSortedData());
+      });
+      ui.sortFieldsList.appendChild(btn);
+    });
+    icones();
+  }
+
+  function renderFilterProps(){
+    ui.filterProps.innerHTML = '';
+    FIELDS.forEach(f=>{
+      const b = document.createElement('button');
+      b.type='button';
+      b.className = 'btn pill' + (f.key===filterActiveProp ? ' active' : '');
+      b.textContent = f.label;
+      b.addEventListener('click', ()=>{
+        filterActiveProp = f.key;
+        renderFilterProps();
+        renderFilterValues();
+      });
+      ui.filterProps.appendChild(b);
+    });
+  }
+
+  function renderFilterValues(){
+    ui.filterValues.innerHTML = '';
+    const key = filterActiveProp;
+    const values = uniqueValuesFor(key);
+    const selected = filters[key];
+
+    if (values.length === 0){
+      const p = document.createElement('div');
+      p.className = 'menu-empty';
+      p.textContent = 'Sem valores disponíveis.';
+      ui.filterValues.appendChild(p);
+      return;
+    }
+
+    values.forEach(v=>{
+      const id = 'fv-'+key+'-'+btoa(unescape(encodeURIComponent(v))).replace(/=/g,'');
+      const row = document.createElement('label');
+      row.className = 'menu-check';
+      row.innerHTML = `
+        <input type="checkbox" id="${id}" value="${v.replace(/"/g,'&quot;')}" ${selected.has(v) ? 'checked' : ''}>
+        <span class="ellipsis" title="${v.replace(/"/g,'&quot;')}">${v}</span>
+      `;
+      ui.filterValues.appendChild(row);
+    });
+  }
+
+  function criaLinha(c){
+    const row = document.createElement('div');
+    row.className = 'list-row cwb-v2 clientes-v2';
+    const razao = safe(c.razao_social);
+    const cnpj  = safe(c.cnpj) || '-';
+    const repr  = safe(c.representante) || '-';
+    const cidade = safe(c.cidade || c.cidade_nome || c.city || '-');
+    const uf = (safe(c.estado || c.uf).toUpperCase()) || '-';
+    const enderecoTitle = safe(c.endereco || '').replace(/"/g, '&quot;');
+
+    row.innerHTML = `
+      <div class="row-main">
+        <div class="ellipsis" title="${enderecoTitle}">${razao}</div>
+        <div class="ellipsis">${cnpj}</div>
+        <div class="ellipsis">${repr}</div>
+        <div class="ellipsis">${cidade}</div>
+        <div class="ellipsis">${uf}</div>
+      </div>
+      <div class="list-actions cwb-v2">
+        <a class="btn" href="/clientes/${c.id}"><i data-lucide="eye"></i> Ver</a>
+        <a class="btn" href="/clientes/${c.id}/editar"><i data-lucide="edit"></i> Editar</a>
+        <button class="btn danger" type="button" data-id="${c.id}" data-action="deletar"><i data-lucide="trash-2"></i> Deletar</button>
+      </div>
+    `;
+    return row;
+  }
+
+  function matchesFilters(c){
+    for(const f of FIELDS){
+      const set = filters[f.key];
+      if (set && set.size){
+        const v = f.get(c);
+        if (!set.has(v)) return false;
+      }
+    }
+    return true;
+  }
+
+  function getFilteredSortedData(){
+    const q = (ui.busca.value || '').toLowerCase();
+
+    let arr = CLIENTES_DATA.filter(c=>{
+      if (!matchesFilters(c)) return false;
+      if (!q) return true;
+      const campos = [
+        safe(c.razao_social),
+        safe(c.cnpj),
+        safe(c.representante),
+        safe(c.cidade || c.cidade_nome || c.city),
+        safe(c.estado || c.uf)
+      ].join(' ').toLowerCase();
+      return campos.includes(q);
+    });
+
+    const fd = fieldDef(sortField);
+    arr.sort((a,b)=>{
+      const va = fd.get(a), vb = fd.get(b);
+      const cmp = String(va).localeCompare(String(vb), 'pt-BR', { sensitivity:'base', numeric:true });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return arr;
+  }
+
+  function renderClientes(list){
+    ui.list.innerHTML = '';
+    if (!list || list.length === 0){
+      ui.vazio.style.display = '';
+      icones();
+      return;
+    }
+    ui.vazio.style.display = 'none';
+    for (const c of list) ui.list.appendChild(criaLinha(c));
+    icones();
+  }
+
+  async function carregaClientes(){
+    ui.vazio.style.display = 'none';
+    try {
+      const r = await fetch('/api/clientes');
+      if (!r.ok) throw new Error('Falha ao carregar clientes');
+      CLIENTES_DATA = await r.json();
+      updateSortChip();
+      updateFilterBadge();
+      renderClientes(getFilteredSortedData());
+    } catch (e){
+      ui.vazio.style.display = '';
+      ui.vazio.textContent = 'Erro ao carregar clientes.';
+      console.error(e);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', ()=>{
+    carregaClientes();
+
+    ui.busca.addEventListener('input', ()=> renderClientes(getFilteredSortedData()));
+
+    ui.sortToggle.addEventListener('click', ()=>{
+      sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+      updateSortChip();
+      renderClientes(getFilteredSortedData());
+    });
+
+    ui.sortFieldBtn.addEventListener('click', (ev)=>{
+      renderSortMenu();
+      openPopover(ui.sortMenu, ev.currentTarget.closest('.input-group') || ev.currentTarget);
+    });
+
+    ui.filterBtn.addEventListener('click', (ev)=>{
+      renderFilterProps();
+      renderFilterValues();
+      openPopover(ui.filterMenu, ev.currentTarget.closest('.input-group') || ev.currentTarget);
+      icones();
+    });
+
+    ui.filterApply.addEventListener('click', ()=>{
+      const key = filterActiveProp;
+      const selected = new Set();
+      ui.filterValues.querySelectorAll('input[type="checkbox"]:checked').forEach(ch => selected.add(ch.value));
+      filters[key] = selected;
+
+      updateFilterBadge();
+      closePopovers();
+      renderClientes(getFilteredSortedData());
+    });
+
+    ui.filterClearAll.addEventListener('click', ()=>{
+      Object.keys(filters).forEach(k => filters[k].clear());
+      ui.filterValues.querySelectorAll('input[type="checkbox"]').forEach(ch => ch.checked = false);
+      updateFilterBadge();
+      renderClientes(getFilteredSortedData());
+    });
+
+    document.body.addEventListener('click', async (ev)=>{
+      const t = ev.target.closest('[data-action="deletar"]');
+      if (!t) return;
+      ev.preventDefault();
+      const id = t.getAttribute('data-id');
+      if (!id) return;
+      if (!confirm('Deletar cliente #'+id+'?')) return;
+      try{
+        const resp = await fetch(`/api/clientes/${id}`, { method:'DELETE' });
+        if (resp.ok){
+          CLIENTES_DATA = CLIENTES_DATA.filter(c => String(c.id) !== String(id));
+          renderClientes(getFilteredSortedData());
+        } else {
+          const err = await resp.json().catch(()=>({}));
+          alert(err.error || 'Erro ao deletar cliente.');
+        }
+      } catch(e){
+        console.error(e);
+        alert('Falha de rede ao tentar deletar.');
+      }
+    });
+
+    document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closePopovers(); });
+  });
+</script>
+{% endblock %}

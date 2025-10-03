@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% from "macros_btn_list_add.html" import btn_lista_adicionar %}
+{% block title %}<title>Embalagens — Sistema de gestão de produção e processos</title>{% endblock %}
+
+{% block content %}
+<h1 class="main-title">Embalagens</h1>
+
+<!-- Escopo mínimo para forçar texto nos botões de ação -->
+<style>
+  .embalagens-v2 .list-actions .btn { padding: 0 10px; gap: 6px; width: auto; min-width: 0; }
+  .embalagens-v2 .list-actions .btn i { margin-right: 4px; }
+</style>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="filters">
+    <!-- Buscar -->
+    <div class="input-group">
+      <div class="input-chip"><i data-lucide="search"></i></div>
+      <input id="busca-emb" type="search" placeholder="Buscar embalagem…" aria-label="Buscar embalagem">
+    </div>
+
+    <!-- ORDENAR (antes de Filtrar) -->
+    <div class="input-group" id="grp-ordenar">
+      <div class="input-chip" aria-hidden="true">
+        <i data-lucide="arrow-up-down"></i>
+      </div>
+      <button class="btn" id="sort-field" type="button" aria-haspopup="menu" aria-expanded="false" title="Selecionar campo">
+        <span id="sort-label">Código</span>
+        <i data-lucide="chevron-down" style="margin-left:6px"></i>
+      </button>
+      <button class="btn" id="sort-toggle" type="button" aria-label="Alternar direção"
+              style="width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center;">
+        <span id="sort-dir">↑</span>
+      </button>
+    </div>
+
+    <!-- FILTRAR -->
+    <div class="input-group" id="grp-filtro">
+      <button class="input-chip" id="filter-btn" type="button" aria-haspopup="menu" aria-expanded="false">
+        <i data-lucide="filter"></i>
+        <span style="margin-left:6px">Filtrar</span>
+        <span id="filter-badge" class="badge" style="margin-left:6px; display:none;"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="actions">
+    {{ btn_lista_adicionar("Embalagem", href=url_for('embalagens_new_page'), id="btn-adicionar-embalagem") }}
+  </div>
+</div>
+
+<!-- Header da lista (V2 alinhado ao card) -->
+<div class="list-header cwb-v2 cwb-v2-root embalagens-v2">
+  <div class="header-main">
+    <div>Código / Rev</div>
+    <div>Cliente</div>
+    <div>Material</div>
+    <div>Espessura (µm)</div>
+    <div>L × A (mm)</div>
+    <div>Impresso</div>
+  </div>
+  <div class="actions-title">Ações</div>
+</div>
+
+<!-- Container da lista (preenchido via JS) -->
+<div id="embalagens-list"></div>
+
+<p id="sem-dados-emb" style="display:none;margin-top:1rem;color:var(--text-secondary);">
+  Nenhuma embalagem cadastrada.
+</p>
+
+<!-- ===== Menus/Popovers ===== -->
+<!-- Sort menu -->
+<div id="sort-menu" class="popover" hidden>
+  <div class="menu-title">Classificar por</div>
+  <div class="menu-list" id="sort-fields-list"></div>
+</div>
+
+<!-- Filter menu -->
+<div id="filter-menu" class="popover" hidden>
+  <div class="menu-title">Filtrar por</div>
+  <div id="filter-props" class="pill-row" style="margin-bottom:8px;"></div>
+  <div class="menu-list" id="filter-values"></div>
+  <div class="menu-actions">
+    <button class="btn" id="filter-clear-all" type="button"><i data-lucide="eraser"></i> Limpar tudo</button>
+    <button class="btn primary" id="filter-apply" type="button"><i data-lucide="check"></i> Aplicar</button>
+  </div>
+</div>
+
+<script>
+  function icones(){ if (window.lucide) lucide.createIcons(); }
+  const safe = (v) => (v == null ? '' : String(v));
+
+  // ===== Helpers específicos =====
+  function dimStr(l, a) {
+    const L = Number(l || 0), A = Number(a || 0);
+    if (!L && !A) return '-';
+    return `${L || '-'} × ${A || '-'}`;
+  }
+  const impressoLabel = (e) => (e.impresso === 1 || e.impresso === true) ? 'Sim' : 'Não';
+
+  // ====== Campos disponíveis para ORDER BY ======
+  const FIELDS = [
+    { key:'codigo',    label:'Código',     get:e=>safe(e.embalagem_code) },
+    { key:'cliente',   label:'Cliente',    get:e=>safe(e.cliente_nome || e.cliente) },
+    { key:'material',  label:'Material',   get:e=>safe(e.material) },
+    { key:'espessura', label:'Espessura',  get:e=>Number(e.espessura_um || 0) },
+    { key:'largura',   label:'Largura',    get:e=>Number(e.largura_mm || 0) },
+    { key:'altura',    label:'Altura',     get:e=>Number(e.altura_mm || 0) },
+    { key:'impresso',  label:'Impresso',   get:e=>(e.impresso === 1 || e.impresso === true) ? 1 : 0 },
+  ];
+
+  // ====== Propriedades filtráveis ======
+  const FILTER_PROPS = [
+    { key:'cliente',  label:'Cliente',  get:e=>safe(e.cliente_nome || e.cliente) },
+    { key:'material', label:'Material', get:e=>safe(e.material) },
+    { key:'impresso', label:'Impresso', get:e=>impressoLabel(e) },
+  ];
+
+  // ====== Estado global ======
+  let EMB_DATA = [];
+  let sortField = 'codigo';
+  let sortDir   = 'asc';
+  const filters = { cliente:new Set(), material:new Set(), impresso:new Set() };
+  let filterActiveProp = 'cliente';
+
+  // ====== UI refs ======
+  const ui = {
+    list: document.getElementById('embalagens-list'),
+    vazio: document.getElementById('sem-dados-emb'),
+    busca: document.getElementById('busca-emb'),
+
+    sortToggle: document.getElementById('sort-toggle'),
+    sortFieldBtn: document.getElementById('sort-field'),
+    sortMenu: document.getElementById('sort-menu'),
+    sortFieldsList: document.getElementById('sort-fields-list'),
+    sortLabel: document.getElementById('sort-label'),
+    sortDir: document.getElementById('sort-dir'),
+
+    filterBtn: document.getElementById('filter-btn'),
+    filterMenu: document.getElementById('filter-menu'),
+    filterProps: document.getElementById('filter-props'),
+    filterValues: document.getElementById('filter-values'),
+    filterApply: document.getElementById('filter-apply'),
+    filterClearAll: document.getElementById('filter-clear-all'),
+    filterBadge: document.getElementById('filter-badge'),
+  };
+
+  function fieldDef(key){ return FIELDS.find(f=>f.key===key) || FIELDS[0]; }
+  function filterPropDef(key){ return FILTER_PROPS.find(f=>f.key===key) || FILTER_PROPS[0]; }
+
+  function uniqueValuesFor(key){
+    const get = filterPropDef(key).get;
+    const s = new Set();
+    for(const e of EMB_DATA){
+      const v = get(e);
+      if (!v || v === '-') continue;
+      s.add(v);
+    }
+    return Array.from(s).sort((a,b)=>String(a).localeCompare(String(b), 'pt-BR', {sensitivity:'base', numeric:true}));
+  }
+
+  function updateSortChip(){
+    ui.sortLabel.textContent = fieldDef(sortField).label;
+    ui.sortDir.textContent   = (sortDir === 'asc') ? '↑' : '↓';
+  }
+
+  function updateFilterBadge(){
+    const total = Object.values(filters).reduce((n,set)=>n + set.size, 0);
+    if (total > 0) { ui.filterBadge.style.display='inline-block'; ui.filterBadge.textContent = total; }
+    else { ui.filterBadge.style.display='none'; ui.filterBadge.textContent = ''; }
+  }
+
+  // ====== Popover básico ======
+  let openPop = null;
+  function openPopover(pop, anchor){
+    const r = anchor.getBoundingClientRect();
+    pop.style.position = 'absolute';
+    pop.style.top  = (window.scrollY + r.bottom + 6) + 'px';
+    pop.style.left = (window.scrollX + r.left) + 'px';
+    pop.hidden = false;
+    openPop = pop;
+    setTimeout(()=>document.addEventListener('click', outsideCloseOnce, { once:true }),0);
+  }
+  function outsideCloseOnce(ev){
+    if (!openPop) return;
+    if (!openPop.contains(ev.target) && !ev.target.closest('#grp-filtro') && !ev.target.closest('#grp-ordenar')){
+      closePopovers();
+    } else {
+      document.addEventListener('click', outsideCloseOnce, { once:true });
+    }
+  }
+  function closePopovers(){ if (ui.sortMenu) ui.sortMenu.hidden = true; if (ui.filterMenu) ui.filterMenu.hidden = true; openPop = null; }
+
+  // ====== Menus ======
+  function renderSortMenu(){
+    ui.sortFieldsList.innerHTML = '';
+    FIELDS.forEach(f=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'menu-item' + (f.key===sortField ? ' active' : '');
+      btn.textContent = f.label;
+      btn.addEventListener('click', ()=>{
+        sortField = f.key;
+        closePopovers();
+        updateSortChip();
+        renderEmbalagens(getFilteredSortedData());
+      });
+      ui.sortFieldsList.appendChild(btn);
+    });
+    icones();
+  }
+
+  function renderFilterProps(){
+    ui.filterProps.innerHTML = '';
+    FILTER_PROPS.forEach(p=>{
+      const b = document.createElement('button');
+      b.type='button';
+      b.className = 'btn pill' + (p.key===filterActiveProp ? ' active' : '');
+      b.textContent = p.label;
+      b.addEventListener('click', ()=>{
+        filterActiveProp = p.key;
+        renderFilterProps();
+        renderFilterValues();
+      });
+      ui.filterProps.appendChild(b);
+    });
+  }
+
+  function renderFilterValues(){
+    ui.filterValues.innerHTML = '';
+    const key = filterActiveProp;
+    const values = uniqueValuesFor(key);
+    const selected = filters[key];
+
+    if (values.length === 0){
+      const p = document.createElement('div');
+      p.className = 'menu-empty';
+      p.textContent = 'Sem valores disponíveis.';
+      ui.filterValues.appendChild(p);
+      return;
+    }
+
+    values.forEach(v=>{
+      const id = 'fv-'+key+'-'+btoa(unescape(encodeURIComponent(v))).replace(/=/g,'');
+      const row = document.createElement('label');
+      row.className = 'menu-check';
+      row.innerHTML = `
+        <input type="checkbox" id="${id}" value="${v.replace(/"/g,'&quot;')}" ${selected.has(v) ? 'checked' : ''}>
+        <span class="ellipsis" title="${v.replace(/"/g,'&quot;')}">${v}</span>
+      `;
+      ui.filterValues.appendChild(row);
+    });
+  }
+
+  // ====== Renderização das linhas ======
+  function criaLinha(e){
+    const row = document.createElement('div');
+    row.className = 'list-row cwb-v2 embalagens-v2';
+
+    const codRev  = `${safe(e.embalagem_code)}${e.rev ? ' / ' + e.rev : ''}`;
+    const cliente = safe(e.cliente_nome || e.cliente || '-');
+    const material= safe(e.material || '-');
+    const esp     = (e.espessura_um != null && e.espessura_um !== '') ? e.espessura_um : '-';
+    const dims    = dimStr(e.largura_mm, e.altura_mm);
+    const imp     = impressoLabel(e) === 'Sim' ? '✓' : '—';
+
+    row.innerHTML = `
+      <div class="row-main">
+        <div class="ellipsis"><strong>${codRev}</strong></div>
+        <div class="ellipsis" title="${cliente.replace(/"/g,'&quot;')}">${cliente}</div>
+        <div class="ellipsis">${material}</div>
+        <div class="ellipsis">${esp}</div>
+        <div class="ellipsis">${dims}</div>
+        <div class="ellipsis ta-center">${imp}</div>
+      </div>
+      <div class="list-actions cwb-v2">
+        <a class="btn" href="/embalagens/${e.id}" title="Ver"><i data-lucide="eye"></i> Ver</a>
+        <a class="btn" href="/embalagens/${e.id}/editar" title="Editar"><i data-lucide="pencil"></i> Editar</a>
+        <button class="btn danger" type="button" data-id="${e.id}" data-action="deletar" title="Excluir">
+          <i data-lucide="trash-2"></i> Excluir
+        </button>
+      </div>
+    `;
+    return row;
+  }
+
+  // ====== Filtro + Busca + Ordenação ======
+  function matchesFilters(e){
+    if (filters.cliente.size){
+      const v = safe(e.cliente_nome || e.cliente);
+      if (!filters.cliente.has(v)) return false;
+    }
+    if (filters.material.size){
+      const v = safe(e.material);
+      if (!filters.material.has(v)) return false;
+    }
+    if (filters.impresso.size){
+      const v = impressoLabel(e);
+      if (!filters.impresso.has(v)) return false;
+    }
+    return true;
+  }
+
+  function getFilteredSortedData(){
+    const q = (ui.busca.value || '').toLowerCase();
+
+    let arr = EMB_DATA.filter(e=>{
+      if (!matchesFilters(e)) return false;
+      if (!q) return true;
+
+      const campos = [
+        safe(e.embalagem_code),
+        safe(e.rev),
+        safe(e.cliente_nome || e.cliente),
+        safe(e.material),
+        safe(e.espessura_um),
+        safe(e.largura_mm),
+        safe(e.altura_mm),
+        impressoLabel(e)
+      ].join(' ').toLowerCase();
+
+      return campos.includes(q);
+    });
+
+    const fd = fieldDef(sortField);
+    arr.sort((a,b)=>{
+      const va = fd.get(a), vb = fd.get(b);
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return sortDir === 'asc' ? (va - vb) : (vb - va);
+      }
+      const cmp = String(va).localeCompare(String(vb), 'pt-BR', { sensitivity:'base', numeric:true });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return arr;
+  }
+
+  function renderEmbalagens(list){
+    ui.list.innerHTML = '';
+    if (!list || list.length === 0){
+      ui.vazio.style.display = '';
+      icones();
+      return;
+    }
+    ui.vazio.style.display = 'none';
+    for (const e of list) ui.list.appendChild(criaLinha(e));
+    icones();
+  }
+
+  async function carregaEmbalagens(){
+    ui.vazio.style.display = 'none';
+    try {
+      const r = await fetch('/api/embalagens');
+      if (!r.ok) throw new Error('Falha ao carregar embalagens');
+      EMB_DATA = await r.json();
+      updateSortChip();
+      updateFilterBadge();
+      renderEmbalagens(getFilteredSortedData());
+    } catch (e){
+      ui.vazio.style.display = '';
+      ui.vazio.textContent = 'Erro ao carregar embalagens.';
+      console.error(e);
+    }
+  }
+
+  // ====== Listeners ======
+  window.addEventListener('DOMContentLoaded', ()=>{
+    carregaEmbalagens();
+
+    ui.busca.addEventListener('input', ()=> renderEmbalagens(getFilteredSortedData()));
+
+    ui.sortToggle.addEventListener('click', ()=>{
+      sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+      updateSortChip();
+      renderEmbalagens(getFilteredSortedData());
+    });
+
+    ui.sortFieldBtn.addEventListener('click', (ev)=>{
+      renderSortMenu();
+      openPopover(ui.sortMenu, ev.currentTarget.closest('.input-group') || ev.currentTarget);
+    });
+
+    ui.filterBtn.addEventListener('click', (ev)=>{
+      renderFilterProps();
+      renderFilterValues();
+      openPopover(ui.filterMenu, ev.currentTarget.closest('.input-group') || ev.currentTarget);
+      icones();
+    });
+
+    ui.filterApply.addEventListener('click', ()=>{
+      const key = filterActiveProp;
+      const selected = new Set();
+      ui.filterValues.querySelectorAll('input[type="checkbox"]:checked').forEach(ch => selected.add(ch.value));
+      filters[key] = selected;
+      updateFilterBadge();
+      closePopovers();
+      renderEmbalagens(getFilteredSortedData());
+    });
+
+    ui.filterClearAll.addEventListener('click', ()=>{
+      Object.keys(filters).forEach(k => filters[k].clear());
+      ui.filterValues.querySelectorAll('input[type="checkbox"]').forEach(ch => ch.checked = false);
+      updateFilterBadge();
+      renderEmbalagens(getFilteredSortedData());
+    });
+
+    // Apenas EXCLUIR usa JS
+    document.body.addEventListener('click', async (ev)=>{
+      const btn = ev.target.closest('[data-action="deletar"]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-id');
+      if (!id) return;
+
+      if (!confirm('Deseja realmente excluir a embalagem #' + id + '?')) return;
+
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/embalagens/' + id, { method: 'DELETE' });
+        if (r.status === 204){
+          // tira da lista local e re-renderiza
+          EMB_DATA = EMB_DATA.filter(e => String(e.id) !== String(id));
+          renderEmbalagens(getFilteredSortedData());
+        } else {
+          const j = await r.json().catch(()=>({error:'Falha ao excluir.'}));
+          alert(j.error || 'Falha ao excluir.');
+        }
+      } catch (err){
+        console.error(err);
+        alert('Erro de rede ao excluir.');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closePopovers(); });
+  });
+</script>
+{% endblock %}

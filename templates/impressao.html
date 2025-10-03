@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-wrapper">
+  <h1 class="page-title">Impressão</h1>
+  <div class="page-subtitle" id="oi-subtitle">
+    <!-- Exemplo: 12 OIs • Status: ABERTA, Cliente: XYZ -->
+  </div>
+
+  <!-- Toolbar de filtros e ações -->
+  <div class="toolbar">
+    <input type="text" class="toolbar-search" placeholder="Buscar nº OI, cliente, arte..." />
+    <select class="toolbar-filter" id="filter-status">
+      <option value="">Status</option>
+      <option value="ABERTA">Aberta</option>
+      <option value="ENVIADA_AO_TERCEIRO">Enviada ao Terceiro</option>
+      <option value="EM_IMPRESSAO_TERCEIRO">Em Impressão Terceiro</option>
+      <option value="DEVOLVIDA">Devolvida</option>
+      <option value="EM_QC">Em QC</option>
+      <option value="CONCLUIDA">Concluída</option>
+      <option value="CANCELADA">Cancelada</option>
+      <option value="INCONSISTENTE">Inconsistente</option>
+    </select>
+    <select class="toolbar-filter" id="filter-execucao">
+      <option value="">Execução</option>
+      <option value="TERCEIRO">Terceiro</option>
+      <option value="INTERNA">Interna</option>
+    </select>
+    <select class="toolbar-filter" id="filter-cliente">
+      <option value="">Cliente</option>
+      <!-- Clientes dinâmicos -->
+    </select>
+    <select class="toolbar-filter" id="filter-fornecedor" style="display:none">
+      <option value="">Fornecedor</option>
+      <!-- Parceiros dinâmicos -->
+    </select>
+    <select class="toolbar-filter" id="filter-maquina" style="display:none">
+      <option value="">Máquina</option>
+      <!-- Máquinas dinâmicas -->
+    </select>
+    <input type="date" class="toolbar-filter" id="filter-data-inicio" placeholder="Data inicial" />
+    <input type="date" class="toolbar-filter" id="filter-data-fim" placeholder="Data final" />
+    <button class="btn ghost" id="btn-export-csv">
+      <span class="icon-csv"></span> Exportar CSV
+    </button>
+    <button class="btn btn-lista-adicionar" id="btn-nova-oi">
+      <span class="icon-plus"></span> Nova OI
+    </button>
+  </div>
+
+  <!-- Grid de lista -->
+  <div class="oi-list-wrapper">
+    <table class="oi-list">
+      <thead>
+        <tr>
+          <th>Nº OI</th>
+          <th>Cliente</th>
+          <th>Arte/Embalagem</th>
+          <th>Execução</th>
+          <th>Fornecedor/Máquina</th>
+          <th>Cores</th>
+          <th>Data prevista</th>
+          <th>Metragem</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="oi-list-body">
+        <!-- Linhas dinâmicas -->
+      </tbody>
+    </table>
+    <!-- Skeleton de carregamento -->
+    <div class="oi-list-skeleton" style="display:none">
+      <!-- 3-5 linhas de skeleton -->
+    </div>
+    <!-- Card vazio -->
+    <div class="oi-list-empty" style="display:none">
+      <span class="icon-package-open"></span>
+      Nenhuma Ordem de Impressão encontrada.
+      <button class="btn btn-lista-adicionar" id="btn-empty-nova-oi">
+        <span class="icon-plus"></span> Nova OI
+      </button>
+    </div>
+    <!-- Notice de erro -->
+    <div class="oi-list-error" style="display:none">
+      <span class="icon-alert-triangle"></span>
+      Ocorreu um erro ao carregar as Ordens de Impressão.
+      <button class="btn ghost" id="btn-oi-retry">Tentar novamente</button>
+    </div>
+  </div>
+</div>
+{% endblock %}

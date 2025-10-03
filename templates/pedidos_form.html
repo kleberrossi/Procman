@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% set is_view = view_mode|default(false) %}
+{% set has_pedido = pedido is defined %}
+{% block title %}<title>{% if is_view %}Pedido {{ pedido.numero_pedido }} (Visualizar){% elif has_pedido %}Editar Pedido {{ pedido.numero_pedido }}{% else %}Novo Pedido{% endif %} — Sistema</title>{% endblock %}
+{% block content %}
+<div class="app-track">
+  <h1 class="main-title">
+    {% if is_view %}Pedido {{ pedido.numero_pedido }}{% elif has_pedido %}Editar Pedido {{ pedido.numero_pedido }}{% else %}Novo Pedido{% endif %}
+  </h1>
+  {% if is_view %}
+  <div class="view-mode-banner" style="margin:0 0 14px;padding:8px 12px;background:var(--bg-alt,#f5f5f5);border:1px solid var(--border,#d0d0d0);border-radius:6px;font-size:.85rem;color:var(--text-dim,#555);">
+    Visualização (somente leitura). Use o botão Editar na lista para alterar.
+  </div>
+  {% endif %}
+
+  <!-- Toggle global de modo de preço (mantido conforme já implementado) -->
+  <div class="mini-togglebar" id="pedido-preco-toggle" data-mode="KG" aria-label="Modo de preço do pedido">
+    <div class="tg" data-key="preco_modo">
+  <div class="field-chip"><i data-lucide="dollar-sign"></i></div>
+  <div class="tg-label">Preço base (R$)</div>
+      <div class="seg" role="tablist" aria-label="Modo de preço">
+  <button type="button" class="seg-btn active" data-preco-mode="KG" aria-selected="true">R$/kg</button>
+  <button type="button" class="seg-btn" data-preco-mode="UN" aria-selected="false">R$/un.</button>
+      </div>
+    </div>
+  </div>
+
+  <form id="pedidos-form" autocomplete="off" novalidate data-mode="{% if is_view %}view{% elif has_pedido %}edit{% else %}new{% endif %}" {% if has_pedido %}data-pedido-id="{{ pedido.id }}"{% endif %}>
+    <div class="form-cards">
+      <!-- Cliente -->
+      <div class="form-row">
+        <label class="field-label" for="cliente_id">Cliente*</label>
+        <div class="field-card">
+          <div class="field-chip"><i data-lucide="users"></i></div>
+          <select class="control" id="cliente_id" name="cliente_id" required {% if is_view %}disabled{% endif %}>
+            <option value="">Selecione…</option>
+            {% if has_pedido %}
+              <option value="{{ pedido.cliente_id }}" selected>{{ pedido.cliente_nome or '(cliente)' }}</option>
+            {% endif %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Repres./comissão(%) -->
+      <div class="form-row">
+        <label class="field-label" for="representante">Repres./comissão(%)</label>
+        <div class="field-card split-2 tail-120" id="card-rep-comissao">
+          <div class="field-chip"><i data-lucide="user"></i></div>
+          <input class="control" type="text" id="representante" name="representante" placeholder="Nome do representante" autocomplete="off" value="{% if has_pedido %}{{ pedido.representante_nome or '' }}{% endif %}" {% if is_view %}disabled{% endif %}>
+          <div class="field-chip"><i data-lucide="percent"></i></div>
+          <input class="control" id="comissao_percent" name="comissao_percent" type="number" step="0.01" placeholder="0.00" inputmode="decimal" style="text-align:right" value="{% if has_pedido %}{{ pedido.comissao_percent or '' }}{% endif %}" {% if is_view %}disabled{% endif %}>
+        </div>
+      </div>
+
+      <!-- Descrição da embalagem -->
+      <div class="form-row">
+        <label class="field-label" for="embalagem_code">Descrição da embalagem*</label>
+        <div class="field-card">
+          <div class="field-chip"><i data-lucide="package"></i></div>
+          <select class="control" id="embalagem_code" name="embalagem_code" required {% if is_view %}disabled{% endif %}>
+            <option value="">Selecione embalagem…</option>
+            {% if has_pedido and pedido.embalagem_code %}
+              <option value="{{ pedido.embalagem_code }}" selected>{{ pedido.embalagem_code }}</option>
+            {% endif %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Quantidade planejada (agora persistida em pedidos.quantidade_planejada) -->
+      <div class="form-row" id="row-quantidade">
+        <label class="field-label" for="quantidade_planejada">Quantidade planejada*</label>
+        <div class="field-card">
+          <div class="field-chip"><i data-lucide="hash"></i></div>
+          <input class="control" type="number" id="quantidade_planejada" name="quantidade_planejada" step="0.001" placeholder="Quantidade (kg)" inputmode="decimal" required value="{% if has_pedido %}{{ pedido.quantidade_planejada or '' }}{% endif %}" {% if is_view %}disabled{% endif %}>
+        </div>
+      </div>
+
+      <!-- Preço base -->
+      <div class="form-row">
+  <label class="field-label" for="preco_base">Preço base (R$)</label>
+        <div class="field-card">
+          <div class="field-chip"><i data-lucide="dollar-sign"></i></div>
+          <input class="control" type="number" step="0.01" id="preco_base" name="preco_base" placeholder="Preço" required value="{% if has_pedido %}{{ pedido.preco_base or pedido.preco_total or '' }}{% endif %}" {% if is_view %}disabled{% endif %}>
+        </div>
+      </div>
+
+      <!-- Regime tributário -->
+      <div class="form-row">
+        <label class="field-label" for="regime_venda">Regime tributário</label>
+        <div class="field-card">
+          <div class="field-chip"><i data-lucide="gavel"></i></div>
+          <select class="control" id="regime_venda" name="regime_venda" {% if is_view %}disabled{% endif %}>
+            <option value="">(opcional)</option>
+            <option value="Simples" {% if has_pedido and pedido.regime_venda=='Simples' %}selected{% endif %}>Simples</option>
+            <option value="Lucro Real" {% if has_pedido and pedido.regime_venda=='Lucro Real' %}selected{% endif %}>Lucro Real</option>
+            <option value="Presumido" {% if has_pedido and pedido.regime_venda=='Presumido' %}selected{% endif %}>Presumido</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Data prevista de entrega -->
+      <div class="form-row">
+        <label class="field-label" for="data_prevista">Data prevista de entrega</label>
+        <div class="field-card">
+          <div class="field-chip"><i data-lucide="calendar"></i></div>
+          <input class="control" type="date" id="data_prevista" name="data_prevista" value="{% if has_pedido %}{{ pedido.data_prevista or '' }}{% endif %}" {% if is_view %}disabled{% endif %}>
+        </div>
+      </div>
+
+      <!-- Observações / Condições comerciais -->
+      <div class="form-row">
+        <label class="field-label" for="condicoes_comerciais">Observações</label>
+        <div class="field-card">
+          <div class="field-chip"><i data-lucide="file-text"></i></div>
+          <textarea class="control auto-grow" id="condicoes_comerciais" name="condicoes_comerciais" placeholder="Observações adicionais, condições comerciais ou notas internas" rows="1" {% if is_view %}disabled{% endif %}>{{ pedido.condicoes_comerciais if has_pedido else '' }}</textarea>
+        </div>
+      </div>
+
+      <input type="hidden" name="preco_modo" id="preco_modo_hidden" value="KG">
+      <input type="hidden" name="representante_id" id="representante_id_hidden">
+    </div>
+
+    <div class="form-actions">
+      <a href="{{ url_for('pedidos_page') }}" class="btn"><i data-lucide="chevron-left"></i> Voltar</a>
+      {% set _pstatus = (pedido.status or 'RASCUNHO') if has_pedido else 'RASCUNHO' %}
+      {% if not is_view %}
+        <button type="submit" class="btn primary" id="btn-salvar-pedido-simples"><i data-lucide="save"></i> Salvar</button>
+        {% if (_pstatus|upper != 'APROVADO') %}
+          <button type="button" class="btn success" id="btn-aprovar-pedido" data-status-atual="{{ _pstatus|upper }}" title="Aprovar pedido{% if has_pedido %} (status atual: {{ _pstatus|upper }}){% endif %}"><i data-lucide="check-circle"></i> Aprovar</button>
+        {% endif %}
+        {% if (_pstatus|upper != 'SUSPENSO') %}
+          <button type="button" class="btn warning" id="btn-suspender-pedido" data-status-atual="{{ _pstatus|upper }}" title="Suspender pedido{% if has_pedido %} (status atual: {{ _pstatus|upper }}){% endif %}"><i data-lucide="pause-circle"></i> Suspender</button>
+        {% endif %}
+      {% else %}
+        <a href="{{ url_for('pedido_edit_page', pedido_id=pedido.id) }}" class="btn primary"><i data-lucide="edit"></i> Editar</a>
+        {% if (_pstatus|upper != 'APROVADO') %}
+          <button type="button" class="btn success" id="btn-aprovar-pedido" data-status-atual="{{ _pstatus|upper }}" title="Aprovar pedido{% if has_pedido %} (status atual: {{ _pstatus|upper }}){% endif %}"><i data-lucide="check-circle"></i> Aprovar</button>
+        {% endif %}
+        {% if (_pstatus|upper != 'SUSPENSO') %}
+          <button type="button" class="btn warning" id="btn-suspender-pedido" data-status-atual="{{ _pstatus|upper }}" title="Suspender pedido{% if has_pedido %} (status atual: {{ _pstatus|upper }}){% endif %}"><i data-lucide="pause-circle"></i> Suspender</button>
+        {% endif %}
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  const form = document.getElementById('pedidos-form');
+  const MODE = form ? form.getAttribute('data-mode') : 'new';
+  const PEDIDO_ID = form?.dataset.pedidoId || null;
+  if (MODE==='edit' && !PEDIDO_ID) {
+    console.warn('[Aprovar] MODE=edit mas data-pedido-id ausente no form');
+  }
+  const cliSel = document.getElementById('cliente_id');
+  const representanteInput = document.getElementById('representante');
+  const comissao = document.getElementById('comissao_percent');
+  const embalSel = document.getElementById('embalagem_code');
+  const quantidadePlanejadaInput = document.getElementById('quantidade_planejada');
+  const precoBase = document.getElementById('preco_base');
+  const regimeSel = document.getElementById('regime_venda');
+  const obsTextarea = document.getElementById('condicoes_comerciais');
+  const precoModeBar = document.getElementById('pedido-preco-toggle');
+  const precoModeHidden = document.getElementById('preco_modo_hidden');
+  const btnAprovar = document.getElementById('btn-aprovar-pedido');
+  const STATUS_ATUAL = "{{ (pedido.status if has_pedido else 'RASCUNHO') or 'RASCUNHO' }}".toUpperCase();
+  // Deriva modo de quantidade a partir do valor persistido (quantidade_tipo) se pedido existente
+  let precoModo = 'KG';
+  const QT_TIPO_INICIAL = "{{ pedido.quantidade_tipo if has_pedido else 'KG' }}";
+  if (QT_TIPO_INICIAL === 'UN') precoModo = 'UN';
+
+  function loadClientes(){
+    if (MODE==='view') return; // já tem opção fixa
+    fetch('/api/clientes').then(r=>r.json()).then(rows => {
+      const current = cliSel.value;
+      cliSel.innerHTML = '<option value="">Selecione…</option>' + rows.map(c=>`<option value="${c.id}" data-representante="${(c.representante||'').replace(/"/g,'&quot;')}" data-comissao="${c.comissao_percent||''}" ${String(c.id)===String(current)?'selected':''}>${c.razao_social}</option>`).join('');
+    }).catch(()=>{});
+  }
+  function loadEmbalagens(){
+    if (MODE==='view') return;
+    fetch('/api/embalagens').then(r=>r.json()).then(rows => {
+      const current = embalSel.value;
+      embalSel.innerHTML = '<option value="">Selecione embalagem…</option>' + rows.map(e=>`<option value="${e.embalagem_code}" data-rev="${e.rev||''}" ${e.embalagem_code===current?'selected':''}>${e.embalagem_code}${e.rev?(' / '+e.rev):''}</option>`).join('');
+    }).catch(()=>{});
+  }
+
+  function bindToggle(){
+    precoModeBar.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.classList.contains('active')) return;
+        precoModeBar.querySelectorAll('.seg-btn').forEach(b=>{ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+        btn.classList.add('active'); btn.setAttribute('aria-selected','true');
+        precoModo = btn.getAttribute('data-preco-mode');
+        precoModeHidden.value = precoModo;
+        // Ajusta campo de quantidade conforme modo
+        if (precoModo === 'KG') {
+          quantidadePlanejadaInput.step = '0.001';
+          quantidadePlanejadaInput.placeholder = 'Quantidade (kg)';
+          quantidadePlanejadaInput.min = '0.001';
+        } else {
+          quantidadePlanejadaInput.step = '1';
+          quantidadePlanejadaInput.placeholder = 'Quantidade (un.)';
+          quantidadePlanejadaInput.min = '1';
+        }
+      });
+    });
+  }
+
+  cliSel.addEventListener('change', () => {
+    const opt = cliSel.selectedOptions[0];
+    if (!opt) return;
+    const rep = opt.getAttribute('data-representante')||'';
+    const comi = opt.getAttribute('data-comissao')||'';
+    if (rep && !representanteInput.value) representanteInput.value = rep;
+    if (comi && !comissao.value) comissao.value = comi;
+  });
+
+  if (MODE!=='view') form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!cliSel.value){ alert('Selecione o cliente.'); cliSel.focus(); return; }
+    if (!embalSel.value){ alert('Selecione a embalagem.'); embalSel.focus(); return; }
+    if (!precoBase.value){ alert('Informe o preço base.'); precoBase.focus(); return; }
+    if (!quantidadePlanejadaInput.value || Number(quantidadePlanejadaInput.value) <= 0){ alert('Informe a quantidade.'); quantidadePlanejadaInput.focus(); return; }
+    const qtdVal = Number(quantidadePlanejadaInput.value);
+    const payload = {
+      cliente_id: Number(cliSel.value),
+  representante_id: null,
+  representante_nome: representanteInput.value || null,
+      comissao_percent: comissao.value ? Number(comissao.value) : null,
+      data_prevista: document.getElementById('data_prevista').value || null,
+  regime_venda: regimeSel.value || null,
+      preco_total: precoBase.value ? Number(precoBase.value) : null,
+      preco_base: precoBase.value ? Number(precoBase.value) : null,
+      quantidade_tipo: precoModo === 'KG' ? 'KG' : 'UN',
+  quantidade_planejada: qtdVal,
+      condicoes_comerciais: obsTextarea.value || null,
+      embalagem_code: embalSel.value || null,
+      ncm: null
+    };
+    const url = (MODE==='edit' && typeof PEDIDO_ID!=='undefined') ? `/api/pedidos/${PEDIDO_ID}` : '/api/pedidos';
+    const method = (MODE==='edit' && typeof PEDIDO_ID!=='undefined') ? 'PATCH' : 'POST';
+    fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+      .then(r=>r.json())
+      .then(resp => { if (resp.error){ alert(resp.error); return; } window.location.href = '/pedidos/page'; })
+      .catch(()=>alert('Falha ao salvar pedido'));
+  });
+
+  loadClientes();
+  loadEmbalagens();
+  bindToggle();
+  // Sinalizar toggle inicial conforme precoModo derivado
+  if (precoModo === 'UN') {
+    precoModeBar.querySelectorAll('.seg-btn').forEach(b=>{ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+    const btnUn = precoModeBar.querySelector('[data-preco-mode="UN"]');
+    if (btnUn){ btnUn.classList.add('active'); btnUn.setAttribute('aria-selected','true'); }
+    precoModeHidden.value = 'UN';
+    quantidadePlanejadaInput.step = '1';
+    quantidadePlanejadaInput.placeholder = 'Quantidade (un.)';
+  } else {
+    precoModeHidden.value = 'KG';
+    quantidadePlanejadaInput.placeholder = 'Quantidade (kg)';
+  }
+  // auto-grow global (base.html) cuidará do textarea .auto-grow
+  if (window.App && App.Util && typeof App.Util.icones === 'function') {
+    App.Util.icones();
+  }
+
+  // Aprovação de pedido
+  if (btnAprovar) {
+    btnAprovar.addEventListener('click', async () => {
+      console.log('[Aprovar] Evento disparado!');
+      alert('Evento do botão Aprovar disparado!');
+      console.debug('[Aprovar] Click iniciado', { disabled: btnAprovar.disabled, MODE, PEDIDO_ID });
+      if (btnAprovar.disabled) return;
+      if (!confirm('Aprovar agora? (se novo, será salvo e aprovado)')) return;
+      // Validações mínimas
+      if (!cliSel.value){ alert('Selecione o cliente.'); cliSel.focus(); return; }
+      if (!embalSel.value){ alert('Selecione a embalagem.'); embalSel.focus(); return; }
+      if (!precoBase.value){ alert('Informe o preço base.'); precoBase.focus(); return; }
+      if (!quantidadePlanejadaInput.value || Number(quantidadePlanejadaInput.value) <= 0){ alert('Informe a quantidade.'); quantidadePlanejadaInput.focus(); return; }
+
+      const restoreLabel = btnAprovar.innerHTML;
+      btnAprovar.disabled = true;
+      btnAprovar.innerHTML = '<i data-lucide="loader"></i> Processando...';
+      App?.Util?.icones?.();
+      const qtdVal = Number(quantidadePlanejadaInput.value);
+      const basePayload = {
+        cliente_id: Number(cliSel.value),
+        representante_id: null,
+        representante_nome: representanteInput.value || null,
+        comissao_percent: comissao.value ? Number(comissao.value) : null,
+        data_prevista: document.getElementById('data_prevista').value || null,
+        regime_venda: regimeSel.value || null,
+        preco_total: precoBase.value ? Number(precoBase.value) : null,
+        preco_base: precoBase.value ? Number(precoBase.value) : null,
+        quantidade_tipo: precoModo === 'KG' ? 'KG' : 'UN',
+        quantidade_planejada: qtdVal,
+        condicoes_comerciais: obsTextarea.value || null,
+        embalagem_code: embalSel.value || null,
+        ncm: null
+      };
+      try {
+        let pid = PEDIDO_ID;
+        // Se não há pid, sempre cria o pedido antes de aprovar
+        if (!pid) {
+          console.debug('[Aprovar] Criando pedido antes de aprovar', basePayload);
+          const r = await fetch('/api/pedidos', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(basePayload) });
+          if (!r.ok){ throw new Error('Falha HTTP criação: '+r.status); }
+          const criado = await r.json().catch(()=>{ throw new Error('Resposta criação não é JSON'); });
+          console.debug('[Aprovar] Resposta criação', criado);
+          if (criado.error){ throw new Error(criado.error); }
+          pid = criado.id;
+          if (!pid) throw new Error('Pedido criado sem id');
+        }
+        console.debug('[Aprovar] Aprovando pedido', pid);
+        const r2 = await fetch(`/api/pedidos/${pid}/status`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status:'APROVADO'}) });
+        if (!r2.ok){ throw new Error('Falha HTTP status: '+r2.status); }
+        const textRaw = await r2.text();
+        let resp2;
+        try { resp2 = JSON.parse(textRaw); } catch(parseErr){ throw new Error('Resposta status não é JSON: '+ textRaw.slice(0,120)); }
+        console.debug('[Aprovar] Resposta status', resp2);
+        if (resp2.error){
+          let msg = resp2.error;
+          if (resp2.atual && resp2.novo) {
+            msg += `\nStatus atual: ${resp2.atual}\nStatus solicitado: ${resp2.novo}`;
+          }
+          throw new Error(msg);
+        }
+        window.location.href = '/pedidos/page';
+      } catch(err){
+        console.error('[Aprovar] Erro', err);
+        alert('Falha ao aprovar: ' + (err.message||err));
+        btnAprovar.disabled = false;
+        btnAprovar.innerHTML = restoreLabel;
+        App?.Util?.icones?.();
+      }
+    });
+  }
+})();
+</script>
+{% endblock %}

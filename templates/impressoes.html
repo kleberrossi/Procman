@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block body_class %}impressoes-page{% endblock %}
+{% block content %}
+<div class="app-track impressoes-list-page">
+  <header class="page-header">
+    <div class="page-head-left">
+      <h1 class="main-title">Impressão</h1>
+      <div id="impressoes-subtitle" class="sub-title" aria-live="polite"></div>
+    </div>
+    <div class="page-head-actions">
+      <button type="button" id="btn-reload-impressoes" class="btn" aria-label="Recarregar lista de OIs"><i data-lucide="rotate-cw"></i></button>
+    </div>
+  </header>
+  <div class="toolbar" id="impressoes-toolbar" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="filters">
+      <div class="input-group" id="grp-busca-impressoes">
+        <span class="input-chip"><i data-lucide="search"></i></span>
+        <input id="busca-impressoes" type="search" placeholder="Buscar nº OI, cliente, arte..." aria-label="Buscar OI, cliente ou arte">
+      </div>
+      <select id="filtro-status" aria-label="Filtrar por status">
+        <option value="">Status</option>
+        <option value="ABERTA">Aberta</option>
+        <option value="ENVIADA_AO_TERCEIRO">Enviada ao Terceiro</option>
+        <option value="EM_IMPRESSAO_TERCEIRO">Em Impressão Terceiro</option>
+        <option value="DEVOLVIDA">Devolvida</option>
+        <option value="EM_QC">Em QC</option>
+        <option value="CONCLUIDA">Concluída</option>
+        <option value="CANCELADA">Cancelada</option>
+        <option value="INCONSISTENTE">Inconsistente</option>
+      </select>
+      <select id="filtro-execucao" aria-label="Filtrar por execução">
+        <option value="">Execução</option>
+        <option value="TERCEIRO">Terceiro</option>
+        <option value="INTERNA">Interna</option>
+      </select>
+      <select id="filtro-cliente" aria-label="Filtrar por cliente">
+        <option value="">Cliente</option>
+        <!-- Clientes dinâmicos -->
+      </select>
+      <select id="filtro-fornecedor" aria-label="Filtrar por fornecedor" style="display:none">
+        <option value="">Fornecedor</option>
+        <!-- Parceiros dinâmicos -->
+      </select>
+      <select id="filtro-maquina" aria-label="Filtrar por máquina" style="display:none">
+        <option value="">Máquina</option>
+        <!-- Máquinas dinâmicas -->
+      </select>
+      <input type="date" id="filtro-data-inicio" placeholder="Data inicial" />
+      <input type="date" id="filtro-data-fim" placeholder="Data final" />
+      <button id="btn-export-csv" class="btn ghost" type="button"><i data-lucide="file-text"></i> Exportar CSV</button>
+      <button id="btn-adicionar-oi" class="btn btn-lista-adicionar" type="button"><i data-lucide="plus"></i> Nova OI</button>
+    </div>
+  </div>
+  <div class="impressoes-cards-scroll" id="impressoes-scroll-container">
+    <div id="impressoes-list" class="impressoes-cards" role="list">
+      <div class="impresso-card header" role="presentation">
+        <div class="cell numero">Nº OI</div>
+        <div class="cell cliente">Cliente</div>
+        <div class="cell arte">Arte/Embalagem</div>
+        <div class="cell execucao">Execução</div>
+        <div class="cell fornecedor_maquina">Fornecedor/Máquina</div>
+        <div class="cell cores">Cores</div>
+        <div class="cell data_prevista">Data prevista</div>
+        <div class="cell metragem">Metragem</div>
+        <div class="cell status">Status</div>
+      </div>
+    </div>
+    <div id="impressoes-sem-dados" class="empty-hint" hidden>Nenhuma Ordem de Impressão encontrada.</div>
+    <div id="impressoes-list-error" class="error-hint" hidden>Ocorreu um erro ao carregar as Ordens de Impressão. <button class="btn ghost" id="btn-oi-retry">Tentar novamente</button></div>
+  </div>
+</div>
+{% endblock %}

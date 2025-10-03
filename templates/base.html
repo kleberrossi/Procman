@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  {% block title %}<title>Dashboard — Sistema de fluxo de processos e gestão de manufatura</title>{% endblock %}
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- Inter -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/modern-style.css') }}">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+<a class="sr-only-focusable" href="#conteudo">Ir para o conteúdo principal</a>
+
+<div class="app-layout">
+  <!-- Header -->
+  <header class="app-header">
+    <a href="{{ url_for('dashboard_page') }}" class="logo">
+      <img src="{{ url_for('static', filename='images/logo.svg') }}" alt="Logo">
+      <span>Noupack - Sistema de fluxo de processos e gestão de manufatura</span>
+    </a>
+    <div class="user-profile">
+      <span class="text-secondary">Ambiente: Produção</span>
+      <div class="badge">v0.1</div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar">
+    {% set ep = request.endpoint or '' %}
+    <div class="sidebar-group">
+      <a class="sidebar-link {{ 'active' if ep == 'dashboard_page' else '' }}"
+         {% if ep == 'dashboard_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('dashboard_page') }}">
+        <i data-lucide="home"></i> Dashboard
+      </a>
+    </div>
+
+    <div class="sidebar-group">
+      <span class="text-secondary" style="font-size:12px;font-weight:600;padding:0 10px;">Cadastros</span>
+      <a class="sidebar-link {{ 'active' if ep == 'clientes_page' else '' }}"
+         {% if ep == 'clientes_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('clientes_page') }}"><i data-lucide="users"></i> Clientes</a>
+      <a class="sidebar-link {{ 'active' if ep == 'embalagens_page' else '' }}"
+         {% if ep == 'embalagens_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('embalagens_page') }}"><i data-lucide="package"></i> Embalagens</a>
+      <a class="sidebar-link {{ 'active' if ep == 'parceiros_page' else '' }}"
+         {% if ep == 'parceiros_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('parceiros_page') }}"><i data-lucide="building-2"></i> Parceiros</a>
+      <a class="sidebar-link {{ 'active' if ep in ['colaboradores_page','funcionarios_page'] else '' }}"
+         {% if ep in ['colaboradores_page','funcionarios_page'] %}aria-current="page"{% endif %}
+         href="{{ url_for('colaboradores_page') }}"><i data-lucide="id-card"></i> Colaboradores</a>
+    </div>
+
+    <div class="sidebar-group">
+      <span class="text-secondary" style="font-size:12px;font-weight:600;padding:0 10px;">Operação</span>
+      <a class="sidebar-link {{ 'active' if ep == 'pedidos_page' else '' }}"
+         {% if ep == 'pedidos_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('pedidos_page') }}"><i data-lucide="file-text"></i> Pedidos</a>
+      <a class="sidebar-link {{ 'active' if ep == 'impressoes_page' else '' }}"
+         {% if ep == 'impressoes_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('impressoes_page') }}"><i data-lucide="brush"></i> Impressão</a>
+      <a class="sidebar-link {{ 'active' if ep == 'recebimentos_page' else '' }}"
+         {% if ep == 'recebimentos_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('recebimentos_page') }}"><i data-lucide="inbox"></i> Recebimento</a>
+      <a class="sidebar-link {{ 'active' if ep == 'corte_solda_page' else '' }}"
+         {% if ep == 'corte_solda_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('corte_solda_page') }}"><i data-lucide="scissors"></i> Corte &amp; Solda</a>
+      <a class="sidebar-link {{ 'active' if ep == 'estoque_page' else '' }}"
+         {% if ep == 'estoque_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('estoque_page') }}"><i data-lucide="layers"></i> Estoque</a>
+      <a class="sidebar-link {{ 'active' if ep == 'expedicoes_page' else '' }}"
+         {% if ep == 'expedicoes_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('expedicoes_page') }}"><i data-lucide="truck"></i> Expedição</a>
+      <a class="sidebar-link {{ 'active' if ep == 'qualidade_page' else '' }}"
+         {% if ep == 'qualidade_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('qualidade_page') }}"><i data-lucide="shield-check"></i> Qualidade</a>
+    </div>
+
+    <div class="sidebar-group">
+      <span class="text-secondary" style="font-size:12px;font-weight:600;padding:0 10px;">Relatórios</span>
+      <a class="sidebar-link {{ 'active' if ep == 'relatorios_page' else '' }}"
+         {% if ep == 'relatorios_page' %}aria-current="page"{% endif %}
+         href="{{ url_for('relatorios_page') }}"><i data-lucide="bar-chart-2"></i> Relatórios</a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main id="conteudo" class="app-main">
+    <!-- SLOT global para o banner (JS pode mover para depois do .main-title) -->
+    <div id="global-notice-slot" class="notice-slot" aria-live="polite">
+      <!-- Card de aviso global (é recriado se removido) -->
+      <div id="global-notice" class="notice warn" hidden role="alert">
+        <i data-lucide="alert-triangle"></i>
+        <span id="global-notice-text"></span>
+        <button id="global-notice-close" class="notice-close" aria-label="Fechar aviso" type="button">×</button>
+      </div>
+    </div>
+
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<!-- Dispara notices vindos de flash() -->
+{% include 'partials/_notice.html' %}
+
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) lucide.createIcons();
+  });
+</script>
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+<script>
+// Auto-grow global para textareas com classe .auto-grow
+window.addEventListener('DOMContentLoaded', () => {
+  function autoGrow(t){
+    if(!t) return; t.style.height='auto'; t.style.overflow='hidden';
+    const maxH = 420; const newH = Math.min(t.scrollHeight, maxH);
+    t.style.height = newH + 'px'; if (t.scrollHeight > maxH) t.style.overflow='auto';
+  }
+  document.querySelectorAll('textarea.auto-grow').forEach(t => {
+    t.addEventListener('input', () => autoGrow(t));
+    autoGrow(t);
+  });
+});
+</script>
+</body>
+</html>

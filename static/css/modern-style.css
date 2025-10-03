@@ -1,0 +1,1764 @@
+/* ===========================================================================
+  Arquivo: modern-style.css
+  Objetivo: Estilos globais da aplicação (layout, componentes de listas, forms)
+
+  ÍNDICE (TOC) – somente comentários; nenhuma mudança funcional:
+    1. Tokens / Variáveis (:root)
+    2. Reset / Base
+    3. Layout Geral (header, sidebar, main)
+    4. Blocos / Componentes genéricos (cards, stats, content-block)
+    5. Botões & Ícones
+    6. Tabelas & Badges
+    7. Grids Utilitários
+    8. Campos soltos (field inputs básicos)
+    9. Flash / Mensagens simples
+   10. Login
+   11. Preferências de movimento (redução de motion)
+   12. KPI Cards
+   13. Toolbar / Input Groups
+   14. Utils (ellipsis / alinhamentos)
+   15. Lista de Atividades (legacy)
+   16. Form Base (cards de formulário responsivos)
+   17. Input Group / Mini Togglebar / Attach Chip
+   18. Listas v2: Clientes
+   19. Form Clientes (escopo)
+   20. Listas v2: Embalagens
+   21. Embalagens Form
+   22. Listas v2: Parceiros
+   23. Listas v2: Colaboradores & Avatar
+   24. Multi-card / Popover / Pills / Sort & Filter menus
+   25. Serviços (UI chips de serviços)
+   26. Padronização Clientes x Parceiros (forms)
+   27. Embalagens – NCM (UI específica)
+   28. Global Notice (banner)
+
+  NOTA: Ordem original mantida para preservar cascata e especificidade.
+  ======================================================================== */
+/* --------------------------------------------------------------------------
+   OPCIONAL: Fonte Aptos
+   Para distribuir legalmente a fonte "Aptos" (Microsoft), coloque os arquivos
+   .woff2 em /static/fonts/aptos/ e descomente os @font-face abaixo.
+   Nomes esperados (exemplo):
+     Aptos-Regular.woff2
+     Aptos-SemiBold.woff2
+   -------------------------------------------------------------------------- */
+/*
+@font-face {
+  font-family: 'Aptos';
+  src: url('../fonts/aptos/Aptos-Regular.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Aptos';
+  src: url('../fonts/aptos/Aptos-SemiBold.woff2') format('woff2');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+*/
+/* ========================================================================== */
+/* =========================  TOKENS / VARIÁVEIS  =========================== */
+/* ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   LAYOUT CONTRACTS & DESIGN TOKENS (NÃO ALTERAR VISUAL SEM REVISAR ESTE BLOCO)
+   --------------------------------------------------------------------------
+   Objetivo: tornar explícitos os contratos de largura, espaçamentos e ícones
+   usados nas listas v2, mantendo rastreabilidade matemática para futuras
+   mudanças. Este bloco adiciona somente documentação + tokens semânticos.
+
+   PRINCIPAIS CONTRATOS
+   1. Coluna de ações (Clientes): largura = (N * ícone) + (N - 1) * gap
+        - N=3, ícone=38px, gap=2px => 3*38 + 2*2 = 118px
+        - Fórmula implementada em: --clientes-actions-w (via calc)
+   2. Espaçamento horizontal mínimo entre:
+        - Última célula de dados e primeiro botão de ação: 2px
+        - Botões adjacentes de ação: 2px
+   3. Ícones de ação quadrados (constrangidos) : 38px x 38px
+   4. Gaps internos das grids v2 (clientes / embalagens / parceiros / colaboradores)
+      convergem para um único token semântico: --space-2xs
+   5. Confiabilidade: Se alterar tamanho de ícone ou quantidade de botões,
+      REVISAR a fórmula da coluna de ações; não substituir por número “mágico”.
+
+   BOAS PRÁTICAS
+   - Evitar substituir tokens por literais em novos componentes.
+   - Utilizar nomes semânticos (ex: --space-2xs) ao invés de repetir "2px".
+   - Ao introduzir novo breakpoint ou modo compacto, manter piso visual dos
+     ícones e gap com tokens (não hardcode).
+   - Para escalonar densidade global, alterar apenas escala de espaço.
+
+   PLACEHOLDERS (NÃO ATIVOS AGORA) – podem ser ligados depois:
+   - Dark mode: usar @media (prefers-color-scheme: dark) e referenciar os
+     tokens de cor semânticos; não trocar cores diretas em componentes.
+   - Motion reduzido já parcialmente respeitado; ampliar se forem criadas
+     novas animações.
+
+   -------------------------------------------------------------------------- */
+
+:root{
+  /* ===== Tipografia / cores ===== */
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --bg:#f3f4f6; --surface:#ffffff;
+
+  /* Bordas / sombras */
+  --border:#d4d8dd; --border-strong:#cbd5e1;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.10);
+  --shadow-md:0 8px 20px rgba(0,0,0,.05);
+
+  /* Texto */
+  --text-primary:#1f2937; --text-secondary:#6b7280; --text-tertiary:#9ca3af;
+
+  /* Marca e dimensões globais */
+  --brand:#003366; --radius:4px;
+  --font-size-base:14px; --font-size-small:13px;
+
+  /* Botões (tema) */
+  --btn-h:32px; --btn-px:10px; --btn-gap:2px; /* --btn-gap mantido (alias futuro para --space-2xs se desejado) */
+  --btn-primary:#0096A0; --btn-primary-strong:#007a82; /* principal */
+  /* Foco (token unificado) */
+  --focus-ring-color: var(--btn-focus-ring, rgba(0,150,160,.35));
+  /* Legacy tokens (mantidos só como alias de compat) */
+  --btn-focus-ring: rgba(0,150,160,.35); /* manter se algum código externo ainda referenciar */
+  --accent-focus: var(--focus-ring-color); /* alias legado -> aponta para o novo token */
+
+  /* Escala de Espaçamento Semântico (mantém valores atuais) */
+  --space-2xs:2px;   /* gap ultra fino (linhas / ícones) */
+  --space-xs:4px;    /* micro agrupar chips/badges */
+  --space-sm:6px;    /* pequenos respiros verticais */
+  --space-md:8px;    /* padding menor */
+  --space-lg:12px;   /* padding padrão interno */
+  --space-xl:16px;   /* espaçamento maior estrutural */
+
+  /* Ícones / Ações */
+  --size-action-icon:38px; /* mantém altura real dos botões de ação */
+
+  /* Listas */
+  --list-col-gap:var(--space-2xs); /* legado: manter até remover referências antigas */
+  --list-gap:var(--space-2xs);     /* novo token genérico para gaps horizontais de grids de listas */
+  --actions-3-icons-w:calc(var(--size-action-icon)*3 + var(--space-2xs)*2); /* largura padrão para coluna de 3 ícones */
+
+  /* Logos */
+  --logo-header-h:20px; --logo-login-h:24px;
+
+  /* ===== Grids específicos (listas) ===== */
+  /* Atividades (rollback para valores originais) */
+  --ativ-cols-6:64px 1.3fr 1.2fr 0.8fr 1.1fr auto;
+  --ativ-cols-5:64px 1.3fr 1.2fr 0.8fr 1.1fr;
+
+  /* Clientes v2 */
+  /* Clientes (nova ordem): Código | Razão | CNPJ | Representante | Cidade-UF */
+  --clientes-cols-5: 80px minmax(180px,1.8fr) minmax(140px,1.2fr) minmax(150px,1.2fr) minmax(140px,1fr);
+  --clientes-cols-with-actions: var(--clientes-cols-5) var(--clientes-actions-w);
+  /* Coluna de ações calculada por fórmula (N=3). Ajustar se N mudar. */
+  --clientes-actions-w:var(--actions-3-icons-w); /* alias para padrão 3 ícones */
+  --clientes-gap:var(--list-gap); --cell-pad-x:var(--space-lg); /* 12px original */
+  /* Correção ótica: deslocamento horizontal sutil para título de ações (evita parecer 1px à direita) */
+  /* Shift ótico refinado: -1.5px gera centragem perceptiva melhor para 'Ações' (ç + ões pesa à direita) */
+  --actions-title-shift:-1.5px;
+
+  /* Embalagens v2 (rollback px) */
+  --emb-cols: minmax(0,1.30fr) minmax(0,1.80fr) minmax(0,1.20fr) 120px 140px 88px;
+  /* Coluna de ações (Embalagens) padronizada com mesma fórmula (3 ícones) */
+  --emb-actions-w:var(--actions-3-icons-w);
+  --emb-gap: var(--list-gap);
+  --emb-cols-with-actions: var(--emb-cols) var(--emb-actions-w);
+
+  /* Parceiros v2 (6 colunas de dados) */
+  /* Parceiros (ajustado): 1 Código (80px) | 2 Razão (2fr) | 3 CNPJ | 4 Tipo | 5 Cidade-UF | 6 Serviços */
+  --parc-cols: 80px minmax(0,2fr) minmax(0,1.30fr) minmax(0,1.2fr) minmax(0,1.40fr) minmax(0,1.0fr);
+  --parc-actions-w:var(--actions-3-icons-w); /* padrão 3 ícones */
+  --parc-gap: var(--list-gap);
+  --parc-cols-with-actions: var(--parc-cols) var(--parc-actions-w);
+
+  /* Colaboradores v2 (6 colunas de dados) — sem CPF */
+  --colab-cols:
+    minmax(0,2fr)    /* Nome */
+    minmax(0,1fr)    /* Vínculo */
+    minmax(0,1.63fr) /* Parceiro (expanded further, +0.08) */
+    minmax(0,1.1fr)  /* Setor */
+    minmax(0,1.2fr)  /* Cargo */
+    minmax(0,0.52fr);/* Situação (~30% reduction from 0.75) */
+  /* Mantém largura padrão de 3 ícones para ações */
+  --colab-actions-w:var(--actions-3-icons-w);
+  --colab-gap:var(--list-gap);
+  --colab-cols-with-actions: var(--colab-cols) var(--colab-actions-w);
+
+  /* ===== Formulário (fonte única) ===== */
+  --form-lead: 1.1fr;     /* espaço ANTES do card (coluna do label) */
+  --form-trail: 1.1fr;    /* espaço DEPOIS do card */
+  --form-card: 5fr;       /* FRAÇÃO do card  */
+  --form-gap:12px;        /* distância fixa entre label e card */
+  --form-row-vgap:6px;
+  --form-label-align:right;
+  --form-mobile-break:1000px;
+
+  /* ===== Layout Track (gutter + largura centralizada) ===== */
+  --layout-gutter:32px;
+  --layout-gutter-sm:16px;
+  --layout-max:1320px;
+  /* Compact variants (somente usados se classe .compact aplicada) */
+  --btn-h-compact:26px; /* altura reduzida para grupos compactos */
+  --font-size-compact:12px;
+}
+
+/* ---------------------------------------------------------------------------
+   RESPONSIVE ENHANCEMENTS
+   Nota: Estes ajustes NÃO alteram a aparência em larguras >= 1100px (viewport
+   típica desktop). Objetivo: preservar layout atual e apenas garantir
+   degradação controlada em telas menores ou expansão confortável em ultra-wide.
+   Breakpoints escolhidos:
+     - 1280px+: contenção de largura de leitura e gutters maiores opcionais
+     - < 1100px: ativa modo "compact" (reduz paddings e densidade leve)
+     - < 880px: listas ganham scroll horizontal intencional (mantém colunas)
+     - < 640px: colapsa headers de listas em duas linhas (stack) e esconde
+                títulos da coluna de ações (mantém ícones acessíveis)
+  Todos os ajustes são progressivos e reversíveis sem impacto nos tokens base.
+*/
+.data-scroll-shadow-left::before,
+.data-scroll-shadow-right::after{ content:""; position:sticky; top:0; width:18px; pointer-events:none; z-index:2; }
+.data-scroll-shadow-left::before{ left:0; height:100%; background:linear-gradient(90deg, var(--bg) 0%, rgba(255,255,255,0) 100%); }
+.data-scroll-shadow-right::after{ right:0; height:100%; background:linear-gradient(270deg, var(--bg) 0%, rgba(255,255,255,0) 100%); }
+/* Aplica largura mínima horizontal às listas (versão consolidada sem -v2) */
+.app-main .list-header.clientes,
+#clientes-list .list-row.cwb.clientes,
+.app-main .list-header.embalagens,
+#embalagens-list .list-row.cwb.embalagens,
+.app-main .list-header.parceiros,
+#parceiros-list .list-row.cwb.parceiros,
+.app-main .list-header.colaboradores,
+#colaboradores-list .list-row.cwb.colaboradores{ min-width:760px; }
+
+/* Stack de header e leve ocultação de rótulos menos críticos abaixo de 640px */
+@media (max-width: 639.98px){
+  .toolbar{ flex-direction:column; align-items:stretch; }
+  .toolbar .filters, .toolbar .actions{ width:100%; justify-content:space-between; }
+  /* Coluna de ações: manter só ícones (título some) - classes consolidadas */
+  .app-main .list-header.clientes .actions-title,
+  .app-main .list-header.embalagens .actions-title,
+  .app-main .list-header.parceiros .actions-title,
+  .app-main .list-header.colaboradores .actions-title{ display:none; }
+}
+
+
+/* ========================================================================== */
+/* =============================  RESET / BASE  ============================= */
+/* ========================================================================== */
+
+*{ box-sizing:border-box; }
+body{
+  margin:0; padding:0; background:var(--bg); color:var(--text-primary);
+  font-family:var(--font-sans); font-size:var(--font-size-base);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+
+/* Faixa central reutilizável para alinhar toolbar + lista + ações */
+.app-track{ width:100%; max-width:var(--layout-max); margin:0 auto; padding:0 var(--layout-gutter); box-sizing:border-box; }
+@media (max-width: 900px){ .app-track{ padding:0 var(--layout-gutter-sm); } }
+button,input,select,textarea{ font-family:var(--font-sans); font-size:inherit; }
+
+/* Acessibilidade: skip link */
+.sr-only-focusable{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+.sr-only-focusable:focus{
+  position:static; width:auto; height:auto; padding:8px 12px;
+  background:#fff; border:1px solid var(--border-strong); border-radius:6px; box-shadow:var(--shadow-sm);
+}
+
+/* ========================================================================== */
+/* ============================  LAYOUT GERAL  ============================== */
+/* ========================================================================== */
+
+.app-layout{
+  display:grid; grid-template-columns:240px 1fr; grid-template-rows:56px 1fr; height:100vh;
+  grid-template-areas:"header header" "sidebar main";
+}
+.app-header{
+  grid-area:header; background:var(--bg); border-bottom:1px solid var(--border-strong);
+  display:flex; align-items:center; justify-content:space-between; padding:0 24px;
+}
+.logo{ display:flex; align-items:center; gap:12px; font-weight:600; font-size:16px; color:inherit; text-decoration:none; }
+.logo img{ height:var(--logo-header-h); width:auto; max-width:120px; object-fit:contain; display:block; }
+.user-profile{ display:flex; align-items:center; gap:12px; color:var(--text-secondary); }
+
+.app-sidebar{
+  grid-area:sidebar; background:var(--bg); border-right:1px solid var(--border-strong);
+  padding:16px; display:flex; flex-direction:column; gap:16px;
+}
+.sidebar-group{ display:flex; flex-direction:column; gap:4px; }
+.sidebar-link{
+  display:flex; align-items:center; gap:12px; padding:8px 10px; border-radius:var(--radius);
+  color:var(--text-secondary); font-weight:400; text-decoration:none; background:transparent;
+  border:1px solid transparent; transition:background .15s, color .15s, box-shadow .15s, border-color .15s, border-radius .15s;
+}
+.sidebar-link:hover{ background:#fff; color:var(--text-primary); border-color:rgba(0,0,0,.08); box-shadow:var(--shadow-sm); }
+.sidebar-link.active,
+.sidebar-link[aria-current="page"],
+.sidebar-link[data-active="true"]{
+  background:#fff; color:var(--text-primary); font-weight:400; border-color:rgba(0,0,0,.08); box-shadow:var(--shadow-sm);
+}
+.sidebar-link.active:hover{ background:#fff; box-shadow:var(--shadow-sm); }
+.sidebar-link:focus-visible{ outline:2px solid rgba(0,0,0,.12); outline-offset:2px; border-radius:calc(var(--radius) + 2px); }
+.sidebar-link.sub-item{ padding-left:48px; }
+
+.app-main{ grid-area:main; padding:32px; overflow:auto; }
+
+/* ========================================================================== */
+/* ===================  TÍTULOS / BLOCOS / COMPONENTES  ===================== */
+/* ========================================================================== */
+
+.main-title{ font-size:24px; font-weight:600; margin-bottom:48px; }
+/* =====================================================================
+  RESERVA DE ESPAÇO ENTRE TÍTULO (h1.main-title) E TOOLBAR
+  Objetivo: garantir um espaço padrão para a barra de aviso laranja
+  ("notice") quando ela for exibida, sem empurrar o restante do
+  conteúdo para baixo (evitando reflow perceptível).
+
+  Estratégia:
+  1. Reduzimos a margem inferior padrão do título.
+  2. Criamos um slot virtual logo após o título usando um pseudo-elemento
+    ou a própria .notice-slot já prevista no HTML base. Para páginas que
+    ainda não inserem a .notice-slot imediatamente após o título,
+    mantemos o espaçamento reservado fixo via variável.
+
+  Implementação concreta abaixo:
+  - Substituímos margin-bottom grande do .main-title por um valor menor
+    e adicionamos um espaçamento reservado consistente através de uma
+    variável: --page-title-gap (entre título e toolbar / conteúdo).
+  - O container que normalmente engloba título + toolbar (ex: .app-track
+    ou bloco dentro de .app-main) se beneficia dessa consistência.
+  - Se um banner .notice for injetado (ex: movido para logo após h1 via JS),
+    ele ocupa esse intervalo sem deslocar o layout subsequente.
+
+  Ajuste rápido: altere --page-title-gap se quiser mais/menos espaço.
+  ===================================================================== */
+
+/* Ajuste 2025-09: reduz gap padrão de título para 40px (antes: 60px) para um layout mais compacto e consistente. */
+:root{ --page-title-gap: 40px; --notice-slot-height: var(--page-title-gap); }
+
+/* Título sem margem inferior grande; o espaço é garantido pelo slot movido via JS */
+.main-title{ margin:0 0 0 0; }
+
+/* Slot reposicionado logo após o título (JS adiciona .notice-slot-inline) */
+.notice-slot-inline{ position:relative; height:var(--notice-slot-height); display:flex; align-items:flex-end; margin:0 0 4px; }
+.notice-slot-inline .notice{ width:100%; }
+
+/* Fallback: se por algum motivo o slot não for movido, mantém espaçamento antigo */
+.main-title:not(:has(+ .notice-slot-inline)) { margin-bottom: var(--page-title-gap); }
+.main-title:not(:has(+ .notice-slot-inline)) + .toolbar{ margin-top:4px; }
+
+/* Toolbar após slot alinhada visualmente */
+.notice-slot-inline + .toolbar{ margin-top:0; }
+
+.stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:24px; margin-bottom:32px; }
+.stat-item{ display:flex; flex-direction:column; gap:4px; }
+.stat-item .value{ font-size:24px; font-weight:600; }
+.stat-item .label{ display:inline-flex; align-items:center; gap:6px; font-size:var(--font-size-small); color:var(--text-secondary); line-height:1; }
+.stat-item .label .lucide{ width:1em; height:1em; display:block; stroke-width:1.75px; flex:0 0 auto; }
+
+.content-grid{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px; }
+.content-block{
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius);
+  padding:16px; box-shadow:var(--shadow-md);
+}
+.content-block-header{ font-weight:600; margin-bottom:16px; }
+.content-block-body{ display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.content-block-body .item{ display:flex; flex-direction:column; gap:2px; }
+.content-block-body .item .value{ font-size:20px; font-weight:600; }
+.content-block-body .item .label{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); }
+
+/* ========================================================================== */
+/* ================================  BOTÕES  ================================ */
+/* ========================================================================== */
+
+.btn{
+  display:inline-flex; align-items:center; gap:var(--btn-gap);
+  min-height:var(--btn-h); padding:0 var(--btn-px);
+  border:1px solid var(--border-strong); border-radius:var(--radius);
+  background:var(--surface); color:var(--text-primary);
+  font-size:var(--font-size-base); font-weight:400; line-height:1;
+  text-decoration:none; cursor:pointer; min-width:0;
+  transition:background .15s, color .15s, border-color .15s, box-shadow .15s, transform .12s;
+}
+.btn:hover{ background:#f3f4f6; }
+.btn:active{ transform:translateY(0); }
+.btn.primary{
+  background:var(--btn-primary); border-color:var(--btn-primary-strong); color:#fff; box-shadow:0 1px 0 rgba(0,0,0,.06);
+  font-weight:400;
+}
+.btn.primary:hover{ background:var(--btn-primary-strong); border-color:var(--btn-primary-strong); box-shadow:0 6px 16px rgba(0,150,160,.18); }
+.btn.primary:focus-visible{ outline:0; box-shadow:0 0 0 3px var(--btn-focus-ring); }
+.btn.danger{ color:#b91c1c; border:1px solid #ef4444; background:var(--surface); }
+.btn.danger:hover{ background:#fee2e2; }
+
+.lucide{ width:16px; height:16px; stroke-width:1.75px; }
+
+/* ========================================================================== */
+/* ===============================  TABELA  ================================= */
+/* ========================================================================== */
+
+/* headers stay bold, all table cells normal weight */
+.table{ width:100%; border-collapse:collapse; }
+.table th,.table td{
+  border-bottom:1px solid var(--border-strong);
+  padding:8px 8px; text-align:left; font-size:var(--font-size-small);
+}
+.table th{ color:var(--text-secondary); font-weight:600; background:#fafafa; }
+.table td{ font-weight:400; color:var(--text-primary); } /* force normal */
+.table .num{ text-align:right; }
+.table td.actions{ display:flex; gap:8px; align-items:center; }
+.table td.actions form{ margin:0; }
+
+.badge{ display:inline-block; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:500; }
+.badge.success{ border:1px solid #22c55e; color:#15803d; background-color:#f0fdf4; }
+.badge.warning{ border:1px solid #f59e0b; color:#b45309; background-color:#fffbeb; }
+.badge.danger{ border:1px solid #ef4444; color:#b91c1c; background-color:#fef2f2; }
+
+/* ========================================================================== */
+/* ==============================  GRIDS ÚTEIS  ============================= */
+/* ========================================================================== */
+
+.grid-1{ display:grid; grid-template-columns:1fr; gap:24px; }
+.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+
+/* ========================================================================== */
+/* =============================  CAMPOS SOLTOS  ============================ */
+/* ========================================================================== */
+
+.field{ display:flex; flex-direction:column; gap:6px; }
+.field label{ font-size:12px; color:var(--text-secondary); }
+.field input,.field select,.field textarea{
+  border:1px solid var(--border-strong); border-radius:var(--radius);
+  padding:8px 10px; background:#fff; font-size:var(--font-size-base);
+}
+
+/* ========================================================================== */
+/* ================================  FLASH  ================================= */
+/* ========================================================================== */
+
+.flash{
+  margin:0 0 16px 0;
+  border:1px solid var(--border-strong); background:#fff;
+  border-radius:var(--radius); padding:10px 12px; color:var(--text-secondary);
+}
+
+/* ========================================================================== */
+/* ================================= LOGIN ================================= */
+/* ========================================================================== */
+
+.login-page{ width:100%; max-width:100vw; padding:16px; }
+.login-card{
+  background:var(--surface); padding:24px; border-radius:var(--radius);
+  box-shadow:0 8px 20px rgba(0,0,0,.1); border:1px solid var(--border-strong);
+  max-width:400px; width:100%; margin:0 auto; text-align:center;
+}
+.login-page .login-card .login-logo{ display:block; height:140px; width:auto; margin:0 auto 20px; }
+.login-title{ font-size:18px; font-weight:600; margin-bottom:8px; }
+.login-subtitle{ font-size:14px; color:var(--text-secondary); margin-bottom:24px; }
+.login-form{ display:flex; flex-direction:column; gap:12px; text-align:left; }
+.login-form label{ font-size:14px; font-weight:500; }
+.login-form input{
+  padding:8px 10px; font-size:var(--font-size-base);
+  border-radius:var(--radius); border:1px solid var(--border-strong);
+}
+.login-form button{
+  margin-top:10px; padding:8px 10px; font-size:var(--font-size-base); font-weight:600;
+  color:#fff; background:var(--btn-primary); border:1px solid var(--btn-primary-strong); border-radius:var(--radius);
+  cursor:pointer; transition:background .15s, box-shadow .15s, transform .12s;
+}
+.login-form button:hover{ background:var(--btn-primary-strong); box-shadow:0 6px 16px rgba(0,150,160,.18); }
+.login-form button:focus-visible{ outline:0; box-shadow:0 0 0 3px var(--btn-focus-ring); }
+.login-footer{ font-size:12px; color:#9ca3af; margin-top:16px; }
+
+.login-container{
+  background:#0b2d56; padding:2rem; border-radius:.75rem;
+  box-shadow:0 8px 24px rgba(0,0,0,.2); color:#fff; text-align:center;
+}
+.login-container h2,.login-container p,.login-container label{ color:#fff; }
+.login-container input[type="email"],.login-container input[type="password"]{
+  background:#fff; color:#0b2d56; border:1px solid #ccc; padding:.5rem; border-radius:.375rem; width:100%; margin-bottom:1rem;
+}
+.login-container button{
+  background:#fff; color:#0b2d56; font-weight:bold; border:none; padding:.6rem 1.2rem; border-radius:.375rem; cursor:pointer; transition:background-color .2s ease;
+}
+.login-container button:hover{ background:#e4e4e4; }
+
+/* ========================================================================== */
+/* ====================== PREFERÊNCIAS DE MOVIMENTO ======================== */
+/* ========================================================================== */
+
+@media (prefers-reduced-motion:reduce){ .sidebar-link,.btn{ transition:none; } }
+
+/* ========================================================================== */
+/* ==============================  KPI CARDS  =============================== */
+/* ========================================================================== */
+
+.kpi-grid{ display:grid; grid-template-columns:repeat(4, minmax(180px,1fr)); gap:24px; margin-bottom:32px; }
+.kpi-card{
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius);
+  box-shadow:var(--shadow-md); padding:16px; display:flex; flex-direction:column; gap:8px;
+}
+.kpi-card .kpi-title{ font-size:var(--font-size-small); color:var(--text-secondary); font-weight:600; }
+.kpi-card .kpi-value{ font-size:26px; font-weight:700; line-height:1.1; }
+.kpi-card .kpi-sub{ font-size:var(--font-size-small); color:var(--text-tertiary); }
+.kpi-card.kpi-primary{ border-color:rgba(0,0,0,.1); box-shadow:var(--shadow-sm); }
+.kpi-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.progress{ height:6px; background:#f1f5f9; border:1px solid var(--border-strong); border-radius:999px; overflow:hidden; margin-top:4px; }
+.progress-bar{ height:100%; background:var(--brand); transition:width .25s ease; }
+.content-block .actions{ display:flex; gap:12px; align-items:center; }
+@media (max-width:920px){
+  .kpi-grid{ grid-template-columns:repeat(2, minmax(180px,1fr)); }
+  .content-grid{ grid-template-columns:1fr; }
+}
+
+/* ========================================================================== */
+/* ================================ TOOLBAR ================================= */
+/* ========================================================================== */
+
+.toolbar{ display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+.toolbar .filters,.toolbar .actions{ display:flex; align-items:center; gap:8px; }
+.toolbar .filters select{
+  height:var(--btn-h); padding:0 12px; border:1px solid var(--border-strong);
+  border-radius:var(--radius); background:var(--surface); font:inherit;
+}
+/* Toolbar input-group delegates to generic .input-group block (see section INPUT GROUP) */
+.toolbar .filters .input-group{ height:var(--btn-h); }
+/* filhos do input-group */
+.input-group > .btn{ border:0; background:transparent; box-shadow:none; }
+.input-group > .input-chip{ border-right:1px solid var(--border-strong); background:var(--bg); }
+.input-group > .input-chip:last-child{ border-right:0; }
+
+.toolbar .filters .input-chip{
+  height:100%; display:flex; align-items:center; justify-content:center;
+  padding:0 12px; color:var(--text-secondary); font-weight:400;
+}
+.toolbar .filters .input-group input{
+  height:100%; border:0; outline:0; background:transparent; padding:0 12px; min-width:260px; font:inherit;
+}
+
+/* ========================================================================== */
+/* ================================ UTILS =================================== */
+/* ========================================================================== */
+
+.ellipsis{ overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.ta-center,.text-center{ text-align:center; justify-content:center; }
+.ta-left,.text-left{ text-align:left; justify-content:flex-start; }
+
+/* ========================================================================== */
+/* =========================== LISTA DE ATIVIDADES ========================== */
+
+/* ========================================================================== */
+/* =======================  PEDIDOS (UI ESPECIALIZADA) ===================== */
+/* ========================================================================== */
+/* Bloco isolado para componentes recém introduzidos em pedidos_form.html e
+   pedidos.html. Mantém consistência com tokens existentes sem sobrescrever
+   padrões globais. Futuro: extrair para design-system se reutilizado. */
+
+/* Page Header refinado */
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:12px 0 18px;flex-wrap:wrap;}
+.page-header-main{display:flex;flex-direction:column;gap:4px;min-width:260px;}
+.page-sub{margin:0;font-size:13px;color:var(--text-secondary);}
+.page-header-actions{display:flex;align-items:center;gap:8px;}
+.page-header-actions .btn.subtle{background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-sm);}
+.page-header-actions .btn.subtle:hover{background:#f1f5f9;}
+
+/* Tabs line (substitui tabs anteriores) */
+.tabs-line{display:flex;gap:2px;overflow:auto;padding:0 0 2px;border-bottom:1px solid var(--border-strong);margin:-4px 0 20px;scrollbar-width:none;}
+.tabs-line::-webkit-scrollbar{display:none;}
+.tab-line{position:relative;background:transparent;border:0;padding:10px 16px;font:inherit;color:var(--text-secondary);cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px;border-radius:6px 6px 0 0;}
+.tab-line:hover{color:var(--text-primary);}
+.tab-line.active{color:var(--text-primary);background:var(--surface);box-shadow:0 -1px 0 var(--surface),0 2px 0 -1px var(--surface),0 0 0 1px var(--border-strong);}
+.tab-line .pill-count{display:inline-flex;min-width:18px;height:18px;padding:0 6px;background:#0d546b;color:#fff;font-size:11px;font-weight:600;border-radius:999px;align-items:center;justify-content:center;}
+
+
+.pedido-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--text-secondary);}
+.pedido-meta .meta-sep{color:var(--text-tertiary);} 
+.pedido-meta .meta-item{max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* Metrics grid adaptativa */
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;font-size:13px;}
+.metrics-grid .metric-chip{background:var(--surface);border:1px solid var(--border-strong);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow-sm);min-height:72px;}
+.metric-chip .m-label{font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;}
+.metric-chip .m-value{font-size:20px;font-weight:700;line-height:1.1;}
+.metric-chip .m-sub{font-size:11px;color:var(--text-tertiary);}
+
+/* Section toolbar (substitui mini-toolbar inline) */
+.section-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:2px 0 10px;flex-wrap:wrap;}
+.section-toolbar-left{display:flex;align-items:center;gap:10px;}
+.section-toolbar-right{display:flex;align-items:center;gap:8px;}
+.st-title{font-size:13px;text-transform:uppercase;letter-spacing:.75px;color:var(--text-secondary);font-weight:600;}
+
+/* Itens do pedido: linhas e totais */
+.pedido-itens-head{margin-top:4px;}
+.pedido-itens-rows{min-height:54px;}
+.pedido-totais{margin-top:14px;display:flex;gap:18px;font-size:13px;flex-wrap:wrap;}
+.total-chip{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border-strong);padding:6px 10px;border-radius:6px;box-shadow:var(--shadow-sm);}
+.total-chip .label{color:var(--text-secondary);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+.total-chip .value{font-weight:600;font-size:15px;}
+
+/* Produção / OP list */
+.op-list-block{border:1px solid var(--border-strong);border-radius:6px;min-height:60px;box-shadow:var(--shadow-sm);background:var(--surface);}
+.op-head{border-bottom:1px solid var(--border-strong);}
+.op-rows .list-row{border-bottom:1px solid var(--border-strong);} 
+.op-rows .list-row:last-child{border-bottom:0;}
+
+/* QC table */
+.qc-table-wrap{border:1px solid var(--border-strong);border-radius:6px;max-height:260px;overflow:auto;background:var(--surface);box-shadow:var(--shadow-sm);}
+.qc-table{width:100%;border-collapse:collapse;font-size:12px;}
+.qc-table thead th{background:#f1f5f9;text-align:left;padding:6px 8px;font-weight:600;font-size:11px;color:var(--text-secondary);letter-spacing:.5px;}
+.qc-table tbody td{padding:6px 8px;border-top:1px solid var(--border-strong);}
+
+/* Logs */
+.logs-body{max-height:280px;overflow:auto;font-size:12px;line-height:1.35;border:1px solid var(--border-strong);border-radius:6px;padding:8px 10px;background:var(--surface);box-shadow:var(--shadow-sm);}
+.logs-body .log-entry{padding:2px 0;display:flex;gap:6px;align-items:flex-start;}
+.logs-body .log-time{font-weight:600;color:var(--text-secondary);font-size:11px;}
+.logs-body .log-msg{flex:1;}
+
+/* Empty hint */
+.empty-hint{margin-top:16px;color:var(--text-secondary);font-size:13px;}
+
+/* Pedido actions sticky (form context) melhor espaçamento
+  Escopado para formulário contínuo para não interferir nas ações da listagem */
+.pedido-form .pedido-actions{margin-top:24px;}
+
+/* (util removido duplicado: scroll wrapper já definido em bloco global acima) */
+
+/* Text utilities local */
+.text-sm{font-size:13px;}
+.text-dim{color:var(--text-secondary);} 
+
+/* ========================= LISTAGEM DE PEDIDOS — cards/lista ========================= */
+/*
+CONTRATO LISTA DE PEDIDOS
+Estrutura:
+  - Cada linha (.pedido-card) e o header (.pedido-card.header) compartilham exatamente o mesmo box model
+    (grid-template, padding, border, radius, height). Diferenças permitidas: tipografia (peso/cor/tamanho) e sticky.
+  - Colunas definidas por --ped-cols (ou --ped-cols-frozen quando congeladas via JS). Atualmente: 9 colunas (sem ações dedicadas).
+  - Header sticky ganha sombra suave somente quando a área é rolada (classe .header-scrolled no wrapper de scroll).
+  - Ações overlay absoluto (hover/focus) — decisão revertida após teste de sticky causar quebra visual. Ver opções futuras no comentário final.
+  - Nenhum width inline é aplicado em linhas individuais; congelamento = apenas variável CSS.
+  - Alinhamento: todas as colunas alinham à esquerda (requisito atual). Números usam font-variant-numeric:tabular-nums para alinhamento visual vertical consistente.
+  - Para adicionar/remover coluna: ajustar --ped-cols e o header em templates/pedidos.html, e a função rowEl no JS.
+  - A detecção de divergências header vs linha pode ser inspecionada via window.DEBUG_PEDIDOS = true (console mostra diff).
+*/
+.pedidos-list-page {
+  /* Grid padrão (nova ordem): Solicitação | Entrega | Nº | Cliente | Código | Quantidade | Preço base | Valor total | Status */
+  --ped-cols: 
+    minmax(90px, 110px)      /* Solicitação (data_emissao) */
+    minmax(90px, 110px)      /* Entrega (data_prevista) */
+    minmax(70px, 90px)       /* Nº */
+    minmax(160px, 240px)     /* Cliente */
+    minmax(100px, 150px)     /* Código (embalagem_code) */
+    minmax(100px, 130px)     /* Quantidade */
+    minmax(110px, 140px)     /* Preço base */
+    minmax(110px, 150px)     /* Valor total */
+    max-content              /* Status */;
+  --ped-col-gap: 12px;
+  /* Botões de ação levemente menores que a linha (mantém centrado via flex) */
+  --ped-actions-size: calc(var(--btn-h) - 6px); /* 32 -> 26px (se btn-h=32) */
+  --ped-scroll-fade-w: 32px;
+  /* Margem de segurança para expansão adaptativa (evita scrollbar intermitente) */
+  --ped-expand-safety: 8px;
+  /* (coluna ações removida – overlay restaurado) */
+  /* Gutter direita para posicionamento fixo de ações (viewport-anchored) */
+  --ped-actions-gutter-right: 48px; /* ajustável: maior valor => ações mais à esquerda */
+}
+.pedidos-list-page .page-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:8px; }
+.pedidos-list-page .page-head-left { display:flex; flex-direction:column; gap:4px; }
+.pedidos-list-page .sub-title { font-size:13px; color:var(--text-secondary); }
+.pedidos-list-page .page-head-actions { display:flex; gap:8px; align-items:flex-end; }
+/* Header: usa mesma configuração estrutural do .pedido-card. Mantemos apenas sticky + tipografia. */
+.pedido-card.header { position:sticky; top:0; z-index:5; }
+.pedido-card.header .cell { text-overflow:clip; }
+.pedidos-cards-scroll { position:relative; overflow-x:auto; overflow-y:hidden; }
+/* Espaçamento vertical entre linhas de pedidos:
+  Ajustado para densidade alta (quase encostando), usando token global 2px.
+  Se necessário modo mais espaçado no futuro: sobrescrever --ped-rows-gap em modifier. */
+/* Densidade máxima: linhas encostadas com separador fino */
+.pedidos-cards { display:flex; flex-direction:column; --ped-rows-gap:0; gap:var(--ped-rows-gap); padding:4px 0 10px; width:fit-content; }
+.pedidos-cards .pedido-card + .pedido-card{ margin-top:1px; } /* separador visual fino */
+/* Linha de pedido (altura alinhada a var(--btn-h)) */
+.pedido-card { 
+  position:relative; display:grid; 
+  grid-template-columns:var(--ped-cols-expanded, var(--ped-cols-frozen, var(--ped-cols))); column-gap:var(--ped-col-gap); align-items:center; 
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius); 
+  height:var(--btn-h); min-height:var(--btn-h); line-height:var(--btn-h);
+  padding:0 8px; /* sem reserva fixa p/ ações: overlay absoluto JS-calculado */
+  box-shadow:none; transition:border-color .12s ease, background .12s ease; 
+  width:fit-content; max-width:100%; 
+}
+.pedido-card .cell { display:flex; align-items:center; min-width:0; padding:0 2px; }
+/* Ajustes horizontais específicos */
+.pedido-card .cell.numero { justify-content:flex-start; padding-left:0; }
+.pedido-card .cell.cliente { justify-content:flex-start; }
+.pedido-card .cell.representante { justify-content:flex-start; }
+.pedido-card .cell.regime { justify-content:flex-start; }
+.pedido-card .cell.data_prevista { justify-content:flex-start; }
+.pedido-card .cell.quantidade, .pedido-card .cell.valor { justify-content:flex-start; font-variant-numeric:tabular-nums; }
+.pedido-card .cell.status { justify-content:flex-start; position:relative; overflow:hidden; }
+/* (coluna de ações removida definitivamente: ações são fornecidas apenas pela barra flutuante fixa) */
+.pedido-card .cell.acoes { display:none !important; }
+/* Header herda a mesma base para alinhamento consistente (sem regras redundantes) */
+.pedido-card.header .cell { padding:0 2px; }
+/* Proteção overflow status + reserva espaço de ações */
+/* Truncamento simples: já reservamos padding-right, então só ellipsis */
+.pedido-card .cell.status .status-chip { max-width:100%; text-overflow:ellipsis; overflow:hidden; }
+/* Garantir que header e linhas tenham mesma box sizing e não "pulem" */
+.pedido-card.header, .pedido-card { box-sizing:border-box; }
+/* Hover/focus consistentes com outras listas (sem elevação exagerada) */
+.pedido-card:hover { background:#f8fafc; border-color:var(--focus-ring-color); }
+.pedido-card:focus-within { border-color:var(--focus-ring-color); outline:0; box-shadow:0 0 0 1px var(--focus-ring-color) inset; }
+/* FUTURO (opções para ações sempre acessíveis sem expandir padding do card):
+   1) Wrapper com display:flex: row; e bloco ações fora do grid (menos acoplado à medição de colunas).
+   2) Pseudo-coluna reservada via gradient + width fixa fora do template grid (usando ::after para compensar espaço).
+   3) Botão flutuante único (menu) que abre popover com ações (reduz largura e poluição visual).
+   4) Sticky interno somente após largura mínima total estar visível (JS adiciona classe quando não há overflow horizontal).
+ */
+/* Header visualmente “flat” alinhado ao padrão de headers das outras listas */
+/* Estrutura idêntica: header mantém mesma border/padding/height para evitar diferenças dimensionais */
+/* Header invisível: mantém dimensões para medir colunas mas não aparece visualmente */
+/* Header “chrome” invisível (sem fundo/borda) mas labels visíveis */
+.pedido-card.header {
+  background:transparent !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+  padding:0 8px;
+  height:var(--btn-h); min-height:var(--btn-h); line-height:var(--btn-h);
+  pointer-events:none; /* impede hover/style, mas mantém leitura do texto */
+}
+.pedidos-cards-scroll.header-scrolled .pedido-card.header { box-shadow:none; }
+.pedido-card.header .cell { font-size:12px; line-height:var(--btn-h); font-weight:600; color:var(--text-secondary); }
+.pedido-card > .cell { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
+.pedido-card .cell.cliente { font-weight:500; }
+/* Removido text-align redundante: alinhamento numérico é controlado via flex (justify-content:flex-end) */
+
+/* ========================================================================== */
+/* ====================== IMPRESSÕES (impressoes.html) ====================== */
+/* ========================================================================== */
+.impressoes-list-page {
+  /* Grid padrão: Nº OI | Cliente | Arte | Execução | Fornecedor | Cores | Data | Metragem | Status */
+  --imp-cols: 
+    minmax(70px, 90px)       /* Nº OI */
+    minmax(160px, 240px)     /* Cliente */
+    minmax(140px, 200px)     /* Arte/Embalagem */
+    minmax(100px, 120px)     /* Execução */
+    minmax(140px, 180px)     /* Fornecedor/Máquina */
+    minmax(100px, 140px)     /* Cores */
+    minmax(110px, 130px)     /* Data prevista */
+    minmax(100px, 130px)     /* Metragem */
+    max-content              /* Status */;
+  --imp-col-gap: 12px;
+}
+
+/* Estilo para o container e lista */
+.impressoes-cards-scroll { position:relative; overflow-x:auto; overflow-y:hidden; }
+.impressoes-cards { display:flex; flex-direction:column; gap:0; padding:4px 0 10px; width:fit-content; }
+.impressoes-cards .impresso-card + .impresso-card { margin-top:1px; }
+
+/* Cartão de impressão (altura alinhada com botões) */
+.impresso-card { 
+  position:relative; display:grid; 
+  grid-template-columns:var(--imp-cols); column-gap:var(--imp-col-gap); align-items:center; 
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius); 
+  height:var(--btn-h); min-height:var(--btn-h); line-height:var(--btn-h);
+  padding:0 8px; box-shadow:none; 
+  transition:border-color .12s ease, background .12s ease; 
+  width:fit-content; max-width:100%; 
+}
+
+/* Células no cartão */
+.impresso-card .cell { 
+  display:flex; align-items:center; min-width:0; padding:0 2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px;
+}
+.impresso-card .cell.cliente { font-weight:500; }
+
+/* Header visualmente flat alinhado ao padrão */
+.impresso-card.header {
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+  padding:0 8px;
+  height:var(--btn-h); min-height:var(--btn-h); line-height:var(--btn-h);
+  pointer-events:none; /* impede hover/style, mas mantém leitura do texto */
+}
+.impressoes-cards-scroll.header-scrolled .impresso-card.header { box-shadow:none; }
+.impresso-card.header .cell { font-size:12px; line-height:var(--btn-h); font-weight:600; color:var(--text-secondary); }
+
+/* Estados especiais: vazio, erro */
+#impressoes-sem-dados { padding:24px 8px; font-size:13px; }
+
+/* Responsividade - esconde colunas menos importantes em telas menores */
+@media (max-width: 900px) {
+  .impressoes-list-page { 
+    --imp-cols: 
+      minmax(70px, 90px)      /* Nº OI */
+      minmax(150px, 220px)    /* Cliente */
+      minmax(140px, 180px)    /* Arte */
+      minmax(100px, 120px)    /* Execução */
+      minmax(110px, 130px)    /* Data */
+      max-content             /* Status */;
+  }
+  .impresso-card.header .cell.fornecedor_maquina,
+  .impresso-card.header .cell.cores,
+  .impresso-card.header .cell.metragem,
+  .impresso-card .cell.fornecedor_maquina,
+  .impresso-card .cell.cores,
+  .impresso-card .cell.metragem { display:none; }
+}
+
+@media (max-width: 680px) {
+  .impressoes-list-page { 
+    --imp-cols: 
+      minmax(70px, 90px)     /* Nº OI */
+      minmax(150px, 1fr)     /* Cliente */
+      minmax(110px, 130px)   /* Data */
+      max-content            /* Status */;
+  }
+  .impresso-card.header .cell.fornecedor_maquina,
+  .impresso-card.header .cell.cores,
+  .impresso-card.header .cell.metragem,
+  .impresso-card.header .cell.execucao,
+  .impresso-card.header .cell.arte,
+  .impresso-card .cell.fornecedor_maquina,
+  .impresso-card .cell.cores,
+  .impresso-card .cell.metragem,
+  .impresso-card .cell.execucao,
+  .impresso-card .cell.arte { display:none; }
+}
+
+/* ========================================================================== */
+/* =========================  STATUS CHIP (UNIFICADO)  ===================== */
+/* Debug opcional: adicionar classe .pedidos-debug-cols em .pedidos-list-page */
+.pedidos-debug-cols #pedidos-list .pedido-card { position:relative; }
+.pedidos-debug-cols #pedidos-list .pedido-card > .cell { outline:1px dashed rgba(0,128,255,.35); position:relative; }
+.pedidos-debug-cols #pedidos-list .pedido-card.header > .cell { outline-color: rgba(255,0,128,.5); }
+.pedidos-debug-cols #pedidos-list .pedido-card.header > .cell::after,
+.pedidos-debug-cols #pedidos-list .pedido-card:not(.header) > .cell::after{ content:attr(class); position:absolute; bottom:-10px; left:0; font:400 9px/1 var(--font-stack,inherit); color:#64748b; pointer-events:none; white-space:nowrap; }
+/* ========================================================================== */
+/* Status chip unificado (legacy removido 2025-10) */
+
+/* ================= Floating Pedido Actions (viewport fixed) ================= */
+#pedido-actions-float.pedido-actions-float { 
+  --pedido-float-right: 72px; /* aumentar valor empurra mais para a esquerda */
+  --pedido-float-btn: 26px;   /* tamanho do botão (lado) */
+  position:fixed; top:0; right:var(--pedido-float-right); z-index:1200; 
+  display:flex; gap:4px; background:var(--surface); padding:4px 6px; 
+  border:1px solid var(--border-strong); border-radius:9px; 
+  box-shadow:0 5px 16px -5px rgba(0,0,0,.25), 0 2px 6px -2px rgba(0,0,0,.15); 
+  opacity:0; pointer-events:none; transition:opacity .15s ease, transform .15s ease; transform:translateY(0); 
+}
+#pedido-actions-float.pedido-actions-float.is-visible { opacity:1; pointer-events:auto; }
+#pedido-actions-float .act-btn { width:var(--pedido-float-btn); height:var(--pedido-float-btn); display:flex; align-items:center; justify-content:center; border:1px solid var(--border-strong); background:var(--surface); border-radius:6px; cursor:pointer; transition:background .15s ease, box-shadow .15s ease, border-color .15s ease; }
+#pedido-actions-float .act-btn:hover { background:var(--surface-alt); }
+#pedido-actions-float .act-btn:focus { outline:0; box-shadow:0 0 0 2px var(--focus-ring-color); }
+#pedido-actions-float .act-btn i { width:16px; height:16px; }
+
+
+.status-chip{ --sc-bg:var(--neutral-soft,#e2e8f0); --sc-color:var(--text-secondary,#334155); --sc-radius:10px; --sc-px:6px; --sc-py:2px;
+  display:inline-flex; align-items:center; gap:4px; font-size:11px; line-height:1.1; font-weight:500; padding:var(--sc-py) var(--sc-px);
+  background:var(--sc-bg); color:var(--sc-color); border-radius:var(--sc-radius); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.status-chip.is-rascunho   { --sc-bg:#e2e8f0; --sc-color:#334155; }
+.status-chip.is-aprovado   { --sc-bg:#dbeafe; --sc-color:#1e3a8a; }
+.status-chip.is-em_execucao{ --sc-bg:#fef3c7; --sc-color:#92400e; }
+.status-chip.is-concluido  { --sc-bg:#dcfce7; --sc-color:#065f46; }
+.status-chip.is-cancelado  { --sc-bg:#fee2e2; --sc-color:#991b1b; }
+
+/* Ponte de compatibilidade: aplica layout base do chip às classes antigas */
+.status-rascunho { background:var(--neutral-soft); color:var(--text-secondary); }
+.status-aprovado { background:var(--info-soft); color:var(--info-text); }
+.status-em_execucao { background:var(--warn-soft); color:var(--warn-text); }
+.status-concluido { background:var(--success-soft); color:var(--success-text); }
+.status-cancelado { background:var(--danger-soft); color:var(--danger-text); }
+.pedido-card{ position:relative; }
+/* (removido: overlay por linha e fades de overflow; substituídos por barra flutuante global) */
+#pedidos-sem-dados { padding:24px 8px; font-size:13px; }
+/* removido fallback de reserva de barra pois agora escondemos quando não necessário */
+@media (max-width: 900px) {
+  /* Esconde Representante; recompacta tracks restantes */
+  .pedidos-list-page { 
+    --ped-cols: 
+      minmax(80px, 100px)   /* Nº */
+      minmax(150px, 220px)  /* Cliente (limite menor) */
+      minmax(70px, 100px)   /* Regime */
+      minmax(100px, 120px)  /* Data */
+      minmax(90px, 120px)   /* Quantidade */
+      minmax(110px, 140px)  /* Valor */
+    max-content           /* Status */;
+  }
+  .pedido-card.header .cell.representante,
+  .pedido-card .cell.representante { display:none; }
+}
+@media (max-width: 680px) {
+  /* Esconde Representante, Regime e Data para mobile compacto */
+  .pedidos-list-page { 
+    --ped-cols: 
+      minmax(70px, 90px)    /* Nº */
+      minmax(150px, 1fr)    /* Cliente (limite inferior reduzido) */
+      minmax(90px, 120px)   /* Quantidade */
+  minmax(100px, 130px)  /* Valor */
+  max-content           /* Status */;
+  }
+  .pedido-card.header .cell.representante,
+  .pedido-card.header .cell.regime,
+  .pedido-card.header .cell.data_prevista,
+  .pedido-card .cell.representante,
+  .pedido-card .cell.regime,
+  .pedido-card .cell.data_prevista { display:none; }
+}
+/* (Bloco legado da tabela larga removido e extraído para pedidos-legacy.css) */
+/* Hotfix preventivo: se ainda existir #pedidos-list dentro de .pedidos-list-page,
+   neutraliza min-width herdado de estilos legados não carregados/preexistentes. */
+.pedidos-list-page #pedidos-list{ min-width:0 !important; }
+/* ========================================================================== */
+
+.app-main .cards-header,
+.app-main .activity-row{
+  display:grid; grid-template-columns:var(--ativ-cols-6);
+  column-gap:var(--list-col-gap); align-items:center;
+}
+
+/* (Bloco de normalização de header de pedidos legado removido) */
+.app-main .cards-header{
+  margin:6px 0 8px; padding:0 12px; min-height:var(--btn-h);
+  font-size:var(--font-size-small); font-weight:600; color:var(--text-secondary);
+}
+.app-main .cards-header > div:nth-child(1),
+.app-main .activity-values > div:nth-child(1){ text-align:center; justify-content:center; }
+.app-main .cards-header > div:nth-child(5),
+.app-main .activity-values > div:nth-child(5){ text-align:center; justify-content:center; }
+.app-main .cards-header > div:nth-child(6){ text-align:center; justify-content:center; }
+
+.app-main .activity-list,
+.app-main .list-rows{ display:flex; flex-direction:column; gap:12px; margin-top:8px; }
+
+.app-main .activity-card{
+  grid-column:1 / span 5; background:var(--surface); border:1px solid var(--border-strong);
+  border-radius:var(--radius); box-shadow:var(--shadow-sm); padding:0 12px; min-height:var(--btn-h);
+  display:flex; align-items:center; transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.app-main .activity-card:hover{ transform:translateY(-1px); box-shadow:var(--shadow-md); border-color:rgba(0,0,0,.08); }
+.app-main .activity-values{
+  display:grid; grid-template-columns:var(--ativ-cols-5);
+  column-gap:var(--list-col-gap); align-items:center; font-weight:400; width:100%;
+}
+
+/* ========================================================================== */
+/* =============================  FORM (BASE)  ============================== */
+/* ========================================================================== */
+
+.form-cards{
+  /* Agora a largura é fluida; as colunas em fr controlam o layout */
+  width:100%;
+  max-width:calc(100vw - 64px);
+  margin:20px auto 0;
+}
+.form-row{
+  display:grid;
+  grid-template-columns: var(--form-lead) minmax(0, var(--form-card)) var(--form-trail);
+  column-gap: var(--form-gap);
+  align-items:center; min-height:var(--btn-h); margin-block:var(--form-row-vgap);
+}
+.field-label,.row-label{
+  display:flex; align-items:center; justify-self:end;
+  /* sem largura fixa: acompanha a coluna em fr */
+  height:var(--btn-h); white-space:nowrap;
+  text-align:var(--form-label-align); font-size:var(--font-size-small); color:var(--text-secondary); font-weight:600; line-height:1.2;
+}
+.field-card{
+  display:grid; grid-template-columns:40px 1fr; align-items:center;
+  min-height:var(--btn-h); width:100%;
+  border:1px solid var(--border-strong); border-radius:var(--radius);
+  background:var(--surface); box-shadow:var(--shadow-sm);
+  overflow:hidden; transition:border-color .12s ease, box-shadow .12s ease, transform .12s ease, background .12s ease;
+}
+.field-card:hover{ border-color:var(--focus-ring-color); box-shadow:none; transform:none; }
+.field-card:focus-within{ border-color:var(--focus-ring-color); box-shadow:none; }
+.field-chip{
+  height:100%; display:grid; place-items:center;
+  background:#f1f5f9; border-right:1px solid var(--border-strong); color:var(--text-tertiary);
+}
+.field-chip .lucide{ width:18px; height:18px; }
+.field-card .control{
+  width:100%; border:0; outline:0; background:transparent;
+  padding:6px 10px; font-size:var(--font-size-base); color:var(--text-primary); line-height:1.25;
+  text-align:left;
+}
+.field-card .control::placeholder{ color:var(--text-tertiary); }
+.field-card .seg{
+  display:inline-flex !important;  /* garante visibilidade consistente */
+  align-items:center; gap:0;
+  border-left:1px solid var(--border-strong); margin-left:6px; height:calc(var(--btn-h) - 4px);
+}
+.field-card .seg .seg-btn{
+  border:0; background:transparent; padding:0 10px; height:100%;
+  cursor:pointer; font-weight:400; color:var(--text-secondary);
+  border-radius:var(--radius);
+}
+.field-card .seg .seg-btn.active{ color:#fff; background:var(--btn-primary); border-radius:var(--radius); }
+
+/* Variações multi-controle (genéricas) */
+.field-card.split-2{ grid-template-columns:40px 1fr 40px 1fr; }
+.field-card.split-2.tail-120{ /* variação utilitária: última coluna fixa 120px (ex.: comissão %) */
+  grid-template-columns:40px 1fr 40px 120px;
+}
+.field-card.split-3-equal{ grid-template-columns:40px 1fr 40px 1fr 40px 1fr; }
+.field-card.split-endereco{ grid-template-columns:40px 7fr 40px 3fr; }
+.field-card.split-2 .field-chip:not(:first-of-type),
+.field-card.split-3-equal .field-chip:not(:first-of-type),
+.field-card.split-endereco .field-chip:not(:first-of-type){ border-left:1px solid var(--border-strong); }
+
+/* Card “desligado” */
+.field-card.is-off{ background:#f1f5f9; opacity:.55; pointer-events:none; }
+.field-card.is-off .control{ color:var(--text-tertiary); }
+
+/* Ações do formulário */
+.form-actions{ display:flex; justify-content:center; align-items:center; gap:12px; margin-top:16px; }
+textarea.control{ font-family:var(--font-sans); font-size:var(--font-size-base); line-height:1.25; padding:6px 10px; }
+
+/* Responsivo global do formulário */
+@media (max-width: 1000px){
+  .form-cards{ width:auto; padding:0 16px; }
+  .form-row{ grid-template-columns:1fr; align-items:start; }
+  .field-label,.row-label{ justify-self:start; text-align:left; height:auto; margin:0 0 4px 0; }
+}
+
+/* Aparência desabilitado */
+.field-card .control:disabled{ color:var(--text-tertiary); background:transparent; cursor:not-allowed; }
+
+/* ========================================================================== */
+/* =========== INPUT GROUP / MINI TOGGLEBAR / FILE ATTACH CHIP ============== */
+/* ========================================================================== */
+
+.input-group {
+  display:inline-flex; align-items:center; height: var(--btn-h, 36px);
+  border:1px solid var(--border, #d4d8dd); border-radius: var(--radius, 4px);
+  background: var(--surface, #fff); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.1));
+}
+.input-group .input-chip {
+  display:inline-flex; align-items:center; justify-content:center; padding:0 10px; height:100%;
+  border-right:1px solid var(--border, #d4d8dd); color: var(--text-secondary, #6b7280);
+}
+.input-group .input-chip i[data-lucide]{ width:16px; height:16px; }
+.input-group > input, .input-group > select{
+  border:0; outline:0; background:transparent; height:100%;
+  padding:0 12px; font:inherit; color: var(--text-primary, #1f2937); min-width:10ch;
+}
+.input-group > select{ -webkit-appearance:none; -moz-appearance:none; appearance:none; padding-right:28px; cursor:pointer; }
+.input-group:focus-within{ box-shadow:0 0 0 2px var(--btn-focus-ring, rgba(0, 102, 204, .2)); }
+
+/* ===== Mini togglebar (v3) — usa o MESMO chip .field-chip dos cards ===== */
+
+.mini-togglebar{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px 12px;
+  margin:24px auto 14px !important;
+  width:100%;
+}
+
+/* Cada grupo vira um “cardzinho” em grid, igual aos fields */
+.mini-togglebar .tg{
+  display:grid;
+  grid-template-columns:40px auto auto; /* chip | label | botões */
+  align-items:center;
+  height:var(--btn-h);
+  background:var(--surface);
+  border:1px solid var(--border-strong);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-sm);
+  overflow:hidden;
+}
+
+/* Reaproveita o .field-chip existente (mesmo visual dos cards) */
+.mini-togglebar .tg .field-chip{
+  height:100%;
+  border-right:1px solid var(--border-strong);
+  background:#f1f5f9;
+  color:var(--text-tertiary);
+}
+.mini-togglebar .tg.tg-check .field-chip{ padding:0; margin:0; } /* remove qualquer espaço interno extra */
+.mini-togglebar .tg .field-chip .lucide{ width:18px; height:18px; }
+
+/* Texto do grupo */
+.mini-togglebar .tg .tg-label{
+  padding:0 10px;
+  color:var(--text-secondary);
+  font-weight:400;
+  white-space:nowrap;
+}
+
+/* Botões Sim/Não à direita */
+.mini-togglebar .tg .seg{
+  display:inline-flex !important;  /* nunca esconda os botões */
+  align-items:center; gap:0;
+  height:100%;
+  border-left:1px solid var(--border-strong);
+  padding-left:6px; /* respiro do divisor */
+}
+.mini-togglebar .tg .seg .seg-btn{
+  height:calc(var(--btn-h) - 4px);
+  padding:0 10px;
+  border:0; background:transparent; color:var(--text-secondary);
+  cursor:pointer; font-weight:400;
+  border-radius:var(--radius);
+}
+.mini-togglebar .tg .seg .seg-btn.active{
+  background:var(--btn-primary); color:#fff; border-radius:var(--radius);
+}
+
+/* === Checkbox style toggles (nova implementação) === */
+.mini-togglebar .tg.tg-check{display:grid;grid-template-columns:40px auto 40px;align-items:center;padding:0;gap:0;}
+/* Texto agora fora do wrapper, herda estilo original */
+.mini-togglebar .tg.tg-check .tg-label{padding:0 10px;color:var(--text-secondary);font-weight:400;white-space:nowrap;}
+.mini-togglebar .tg.tg-check .tg-checkwrap{display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;width:40px;height:100%;}
+.mini-togglebar .tg.tg-check .tg-checkwrap input[type=checkbox]{position:absolute;opacity:0;width:0;height:0;}
+.mini-togglebar .tg.tg-check .tg-checkwrap .check-ui{width:32px;height:20px;border-radius:12px;background:var(--surface-alt,#f1f5f9);border:1px solid var(--border-strong);position:relative;transition:background .18s,border-color .18s;display:inline-block;}
+.mini-togglebar .tg.tg-check .tg-checkwrap .check-ui:after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .18s;}
+.mini-togglebar .tg.tg-check .tg-checkwrap input[type=checkbox]:checked + .check-ui{background:var(--btn-primary);border-color:var(--btn-primary);}
+.mini-togglebar .tg.tg-check .tg-checkwrap input[type=checkbox]:checked + .check-ui:after{transform:translateX(12px);}
+.mini-togglebar .tg.tg-check .tg-checkwrap input[type=checkbox]:focus + .check-ui{outline:2px solid var(--btn-primary-focus, var(--btn-primary));outline-offset:2px;}
+.mini-togglebar .tg.tg-check .tg-checkwrap input[type=checkbox]:disabled + .check-ui{opacity:.55;cursor:not-allowed;}
+.mini-togglebar .tg.tg-check.is-off .tg-label{color:var(--text-tertiary);}
+
+/* Asterisco dinâmico de campo requerido (cliente quando vendido) */
+#cliente-required-asterisk{display:inline-block;margin-left:2px;color:var(--danger,#dc2626);visibility:hidden;}
+
+/* ==================  Mini-togglebar — variantes compactas  ================== */
+/* Aplica quando precisar inserir mais um grupo (ex: Tratamento) sem quebrar largura */
+.mini-togglebar.compact .tg,
+.mini-togglebar .tg.compact{ height:var(--btn-h-compact); font-size:var(--font-size-compact); }
+.mini-togglebar.compact .tg .seg .seg-btn,
+.mini-togglebar .tg.compact .seg .seg-btn{ height:calc(var(--btn-h-compact) - 4px); padding:0 8px; font-size:inherit; }
+.mini-togglebar .tg.compact .tg-label{ padding:0 8px; }
+.mini-togglebar .tg.compact .field-chip .lucide{ width:16px; height:16px; }
+
+/* Tratamento (Sim/Não + campo numérico "dinas")
+   Estrutura sugerida HTML dentro de .mini-togglebar:
+   <div class="tg treatment compact">
+     <div class="field-chip"><i data-lucide="flask"></i></div>
+     <div class="tg-label">Tratamento</div>
+     <div class="seg">
+       <button type="button" class="seg-btn" data-val="nao">Não</button>
+       <button type="button" class="seg-btn" data-val="sim">Sim</button>
+     </div>
+     <div class="dinas-box">
+       <input type="number" inputmode="decimal" step="0.01" class="dinas-input" placeholder="dinas" />
+     </div>
+   </div>
+*/
+.mini-togglebar .tg.treatment{ grid-template-columns:34px auto auto 70px; }
+.mini-togglebar .tg.treatment .dinas-box{ height:100%; display:flex; align-items:center; border-left:1px solid var(--border-strong); background:#f8fafc; }
+.mini-togglebar .tg.treatment .dinas-input{
+  width:100%; border:0; outline:0; background:transparent; padding:0 6px; font:inherit; color:var(--text-primary);
+  text-align:right; /* valores numéricos alinhados à direita */
+}
+.mini-togglebar .tg.treatment .dinas-input:focus{ background:#fff; }
+.mini-togglebar .tg.treatment .seg{ padding-left:4px; }
+
+/* Placeholder menor em compact */
+.mini-togglebar .tg.treatment .dinas-input::placeholder{ color:var(--text-tertiary); font-size:11px; }
+
+/* Estado quando desabilitado (ex: Não selecionado = input travado) */
+.mini-togglebar .tg.treatment.is-off .dinas-input{ color:var(--text-tertiary); cursor:not-allowed; }
+
+/* Um pouco mais de respiro quando vem logo após o título */
+/* Ajuste 2025-09: harmoniza bloco título+mini-togglebar para percepção de um único header compacto */
+.main-title + .mini-togglebar{ margin-top:8px !important; margin-bottom:24px; }
+
+.field-card.file-attach{ grid-template-columns:40px 1fr auto; }
+.attach-chip{
+  height:100%; display:inline-flex; align-items:center; gap:6px; padding:0 12px;
+  border-left:1px solid var(--border-strong); background:#f8fafc; color:var(--text-secondary); cursor:pointer;
+}
+.attach-chip .lucide{ width:16px; height:16px; }
+
+/* ========================================================================== */
+/* ========================================================================== */
+/* =====================  CLIENTES — FORM (escopado)  ====================== */
+/* (Bloco de lista -v2 removido em 2025-10 após migração concluída)        */
+/* ========================================================================== */
+
+#clientes-form .form-row{ grid-template-columns: var(--form-lead) minmax(0, var(--form-card)) var(--form-trail); }
+#clientes-form .field-label, #clientes-form .row-label{ justify-self:end; text-align:right; justify-content:flex-end; }
+@media (max-width: 720px){
+  #clientes-form .form-row{ grid-template-columns: 1fr; }
+  #clientes-form .field-label, #clientes-form .row-label{ justify-self:start; text-align:left; justify-content:flex-start; }
+}
+/* Grades corretas dos cards — Clientes */
+/* Removido override específico de split-2 e split-3 para clientes (2025-09) a fim de usar grades padrão.
+  Antes:
+  #clientes-form .field-card.split-2 { 40px 1fr 40px 120px }
+  #clientes-form .field-card.split-3 { 40px 1fr 40px 72px 40px 160px }
+  Reverter se necessário: restaurar linhas acima. */
+
+/* ========================================================================== */
+/* ========================================================================== */
+/* =======================  EMBALAGENS — FORM (escopado)  ================== */
+/* (Bloco de lista -v2 removido em 2025-10)                                  */
+/* ========================================================================== */
+#embalagens-form .form-row{ grid-template-columns: var(--form-lead) minmax(0, var(--form-card)) var(--form-trail); }
+#embalagens-form .field-label, #embalagens-form .row-label{ justify-self:end; text-align:right; justify-content:flex-end; }
+@media (max-width: 720px){
+  #embalagens-form .form-row{ grid-template-columns: 1fr; }
+  #embalagens-form .field-label, #embalagens-form .row-label{ justify-self:start; text-align:left; justify-content:flex-start; }
+}
+#embalagens-form .field-card.split-2{ grid-template-columns: 40px 1fr 40px 1fr; }
+
+/* ========================================================================== */
+/* ===== Avatar (escopado) — override forte ===== */
+
+/* ========================================================================== */
+/* ===================  LISTAS (CLASSES CONSOLIDADAS)  ===================== */
+/* (Blocos -v2 e aliases removidos em 2025-10; esta é a definição única) */
+
+/* CLIENTES (base) */
+.app-main .list-header.clientes, #clientes-list .list-row.cwb.clientes{
+  display:grid; grid-template-columns:var(--clientes-cols-with-actions) !important;
+  column-gap:var(--clientes-gap); align-items:center; min-width:760px;
+}
+.app-main .list-header.clientes{ margin:16px 0 8px; font-size:var(--font-size-small); font-weight:600; color:var(--text-secondary); min-height:var(--btn-h); }
+#clientes-list .list-row.cwb.clientes .row-main{
+  grid-column:1 / -2; display:grid; grid-template-columns:var(--clientes-cols-5); column-gap:var(--clientes-gap);
+  padding:0 12px 0 0; height:var(--btn-h); background:var(--surface); border:1px solid var(--border-strong);
+  border-radius:var(--radius); box-shadow:var(--shadow-sm); align-items:center; transition:border-color .12s ease, box-shadow .12s ease, transform .12s ease; min-width:0;
+}
+.app-main .list-header.clientes .header-main{
+  grid-column:1 / -2; display:grid; grid-template-columns:var(--clientes-cols-5); column-gap:var(--clientes-gap);
+  padding:0 12px 0 0; height:var(--btn-h); background:transparent !important; border:0 !important; box-shadow:none !important; border-radius:0; align-items:center; min-width:0;
+}
+#clientes-list .list-row.cwb.clientes .row-main:hover{ transform:none; box-shadow:none; border-color:var(--focus-ring-color); }
+#clientes-list .list-row.cwb.clientes .row-main:focus-within{ border-color:var(--focus-ring-color); box-shadow:0 0 0 1px var(--focus-ring-color) inset; }
+.app-main .list-header.clientes .header-main > *, #clientes-list .list-row.cwb.clientes .row-main > *{
+  display:flex; align-items:center; justify-content:flex-start; text-align:left; padding:0 8px !important; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+#clientes-list .list-row.cwb.clientes .row-main > *{ font-weight:400; color:var(--text-primary); }
+#clientes-list .list-row.cwb.clientes .list-actions{ display:flex; align-items:center; justify-content:center; gap:var(--clientes-gap); width:var(--clientes-actions-w); }
+#clientes-list .list-row.cwb.clientes .list-actions .btn{ margin:0; flex:0 0 auto; }
+.app-main .list-header.clientes .actions-title{ display:flex; align-items:center; justify-content:center; width:var(--clientes-actions-w); font-size:12px; color:var(--text-secondary); font-weight:600; position:relative; left:var(--actions-title-shift); }
+@media (max-width:880px){ .app-main .list-header.clientes, #clientes-list .list-row.cwb.clientes{ min-width:720px; } }
+@media (max-width:640px){ .app-main .list-header.clientes .actions-title{ display:none; } }
+
+/* EMBALAGENS (base) */
+.app-main .list-header.embalagens, #embalagens-list .list-row.cwb.embalagens{
+  display:grid; grid-template-columns: var(--emb-cols-with-actions) !important; column-gap: var(--emb-gap); align-items:center; min-width:760px;
+}
+.app-main .list-header.embalagens{ margin:16px 0 8px; font-size: var(--font-size-small); font-weight:600; color: var(--text-secondary); min-height: var(--btn-h); }
+.app-main .list-header.embalagens .header-main{ grid-column: 1 / -2; display:grid; grid-template-columns: var(--emb-cols); column-gap: var(--emb-gap); padding:0 var(--cell-pad-x); height: var(--btn-h); background:transparent !important; border:0 !important; box-shadow:none !important; align-items:center; min-width:0; }
+#embalagens-list .list-row.cwb.embalagens .row-main{ grid-column: 1 / -2; display:grid; grid-template-columns: var(--emb-cols); column-gap: var(--emb-gap); padding: 0 var(--cell-pad-x); height: var(--btn-h); background: var(--surface); border:1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-sm); align-items:center; transition: border-color .12s ease, box-shadow .12s ease, transform .12s ease; min-width:0; }
+#embalagens-list .list-row.cwb.embalagens .row-main:hover{ transform:none; box-shadow:none; border-color:var(--focus-ring-color); }
+#embalagens-list .list-row.cwb.embalagens .row-main:focus-within{ border-color:var(--focus-ring-color); box-shadow:0 0 0 1px var(--focus-ring-color) inset; }
+.app-main .list-header.embalagens .header-main > *, #embalagens-list .list-row.cwb.embalagens .row-main > *{ display:flex; align-items:center; justify-content:flex-start; text-align:left; padding:0 !important; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#embalagens-list .list-row.cwb.embalagens .row-main > *{ font-weight:400; color:var(--text-primary); }
+.app-main .list-header.embalagens .actions-title, #embalagens-list .list-row.cwb.embalagens .list-actions{ grid-column:7; display:flex; align-items:center; padding:0; min-width:0; }
+.app-main .list-header.embalagens .actions-title{ justify-content:flex-end; text-align:right; padding:0 var(--emb-gap) 0 0; position:relative; left:var(--actions-title-shift); transform:translateZ(0); }
+#embalagens-list .list-row.cwb.embalagens .list-actions{ justify-content:flex-end; gap: var(--emb-gap); padding:0 var(--emb-gap) 0 0; }
+.app-main .list-header.embalagens .actions-title{ justify-content:center; text-align:center; position:relative; left:var(--actions-title-shift); }
+#embalagens-list .list-row.cwb.embalagens .list-actions{ justify-content:flex-start; gap: var(--emb-gap); }
+#embalagens-list .list-row.cwb.embalagens .list-actions .btn{ margin:0; flex:0 0 auto; min-width:0; }
+.app-main .list-header.embalagens .header-main > :nth-child(4),
+.app-main .list-header.embalagens .header-main > :nth-child(5),
+.app-main .list-header.embalagens .header-main > :nth-child(6),
+#embalagens-list .list-row.cwb.embalagens .row-main > :nth-child(4),
+#embalagens-list .list-row.cwb.embalagens .row-main > :nth-child(5),
+#embalagens-list .list-row.cwb.embalagens .row-main > :nth-child(6){ justify-content:center; text-align:center; }
+#embalagens-list .list-row.cwb.embalagens .row-main > :nth-child(1){ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+
+/* PARCEIROS (base) */
+.app-main .list-header.parceiros, #parceiros-list .list-row.cwb.parceiros{ display:grid; grid-template-columns: var(--parc-cols) var(--parc-actions-w) !important; column-gap: var(--parc-gap); align-items:center; min-width:760px; }
+.app-main .list-header.parceiros{ margin:16px 0 8px; font-size:var(--font-size-small); font-weight:600; color:var(--text-secondary); min-height:var(--btn-h); }
+.app-main .list-header.parceiros .header-main{ grid-column:1 / -2; display:grid; grid-template-columns:var(--parc-cols); column-gap:var(--parc-gap); padding:0 var(--cell-pad-x) 0 0; height:var(--btn-h); background:transparent !important; border:0 !important; box-shadow:none !important; border-radius:0; align-items:center; min-width:0; }
+#parceiros-list .list-row.cwb.parceiros .row-main{ grid-column:1 / -2; display:grid; grid-template-columns:var(--parc-cols); column-gap:var(--parc-gap); padding:0 var(--cell-pad-x) 0 0; height:var(--btn-h); background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius); box-shadow:var(--shadow-sm); align-items:center; transition:border-color .12s ease, box-shadow .12s ease, transform .12s ease; min-width:0; }
+#parceiros-list .list-row.cwb.parceiros .row-main:hover{ transform:none; box-shadow:none; border-color:var(--focus-ring-color); }
+#parceiros-list .list-row.cwb.parceiros .row-main:focus-within{ border-color:var(--focus-ring-color); box-shadow:0 0 0 1px var(--focus-ring-color) inset; }
+.app-main .list-header.parceiros .header-main > *, #parceiros-list .list-row.cwb.parceiros .row-main > *{ display:flex; align-items:center; justify-content:flex-start; text-align:left; padding:0 8px !important; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#parceiros-list .list-row.cwb.parceiros .row-main > *{ font-weight:400; color:var(--text-primary); }
+#parceiros-list .list-row.cwb.parceiros .list-actions{ grid-column:7; display:flex; align-items:center; justify-content:flex-end; padding:0; gap:var(--parc-gap); min-width:0; }
+#parceiros-list .list-row.cwb.parceiros .list-actions .btn{ margin:0; flex:0 0 auto; min-width:0; }
+.app-main .list-header.parceiros .actions-title{ grid-column:7; display:flex; align-items:center; justify-content:center; padding:0; min-width:0; position:relative; left:var(--actions-title-shift); transform:translateZ(0); }
+#parceiros-list .list-row.cwb.parceiros .row-main > :nth-child(3){ font-family: inherit; }
+#parceiros-list .list-row.cwb.parceiros .row-main > :nth-child(4){ text-transform: capitalize; }
+
+/* COLABORADORES (base) */
+.app-main .list-header.colaboradores, #colaboradores-list .list-row.cwb.colaboradores{ display:grid; grid-template-columns: var(--colab-cols-with-actions) !important; column-gap: var(--colab-gap); align-items:center; min-width:760px; }
+.app-main .list-header.colaboradores{ margin:16px 0 8px; font-size: var(--font-size-small); font-weight:600; color: var(--text-secondary); min-height: var(--btn-h); }
+.app-main .list-header.colaboradores .header-main{ grid-column: 1 / -2; display:grid; grid-template-columns: var(--colab-cols); column-gap: var(--colab-gap); padding:0 var(--cell-pad-x); height: var(--btn-h); background: transparent !important; border: 0 !important; box-shadow: none !important; align-items:center; min-width:0; }
+#colaboradores-list .list-row.cwb.colaboradores .row-main{ grid-column: 1 / -2; display:grid; grid-template-columns: var(--colab-cols); column-gap: var(--colab-gap); padding: 0 var(--cell-pad-x); height: var(--btn-h); background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-sm); align-items:center; transition: border-color .12s ease, box-shadow .12s ease, transform .12s ease; min-width:0; }
+#colaboradores-list .list-row.cwb.colaboradores .row-main:hover{ transform:none; box-shadow:none; border-color:var(--focus-ring-color); }
+#colaboradores-list .list-row.cwb.colaboradores .row-main:focus-within{ border-color:var(--focus-ring-color); box-shadow:0 0 0 1px var(--focus-ring-color) inset; }
+.app-main .list-header.colaboradores .header-main > *, #colaboradores-list .list-row.cwb.colaboradores .row-main > *{ display:flex; align-items:center; justify-content:flex-start; text-align:left; padding:0 !important; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#colaboradores-list .list-row.cwb.colaboradores .row-main > *{ font-weight:400; color:var(--text-primary); }
+.app-main .list-header.colaboradores .actions-title, #colaboradores-list .list-row.cwb.colaboradores .list-actions{ grid-column:7; display:flex; align-items:center; padding:0; min-width:0; }
+.app-main .list-header.colaboradores .actions-title{ justify-content:flex-end; text-align:right; padding:0 var(--colab-gap) 0 0; position:relative; left:var(--actions-title-shift); transform:translateZ(0); }
+#colaboradores-list .list-row.cwb.colaboradores .list-actions{ justify-content:flex-end; gap: var(--colab-gap); padding:0 var(--colab-gap) 0 0; }
+.app-main .list-header.colaboradores .actions-title{ justify-content:center; text-align:center; position:relative; left:var(--actions-title-shift); }
+#colaboradores-list .list-row.cwb.colaboradores .list-actions{ justify-content:flex-start; gap: var(--colab-gap); }
+#colaboradores-list .list-row.cwb.colaboradores .list-actions .btn{ margin:0; flex:0 0 auto; min-width:0; }
+
+/* ========================================================================== */
+/* =====================  MINI LISTAS (PEDIDO / ITENS)  ==================== */
+/* Estruturas compactas usadas dentro do formulário de pedidos.             */
+/* Grid definido via custom property --cols quando necessário.              */
+/* ========================================================================== */
+
+/* Componente genérico: .list-mini ------------------------------------------------
+   Objetivo: Reaproveitar padrão compacto de listagens internas (itens / OP).
+   Estrutura esperada:
+     <div class="list-header list-mini [--variant]" style="--cols:…; --actions-w:…">
+       <div class="header-main">(células)</div>
+       <div class="actions-title">Ações</div> (opcional)
+     </div>
+     <div class="list-mini-rows"> (container opcional para agrupar linhas)
+       <div class="list-row list-mini-row"> … </div>
+     </div>
+   Custom Properties:
+     --cols      : definição de colunas (grid-template-columns)
+     --actions-w : largura da coluna de ações (fallback 80px)
+     --mini-gap  : espaçamento horizontal entre colunas (default 8px)
+     --mini-h    : altura mínima da linha/header (default 28px)
+   Variants via classe extra:
+     .itens   → layout padrão atual de itens de pedido
+     .op-list → layout de ordens de produção (pode ajustar --cols externamente)
+   --------------------------------------------------------------------------- */
+
+.list-header.list-mini{
+  --mini-gap:8px; --mini-h:28px;
+  display:grid; align-items:center; grid-template-columns:var(--cols, auto 1.4fr 0.6fr 0.6fr 0.6fr 0.9fr var(--actions-w, 80px));
+  column-gap:var(--mini-gap); min-height:var(--mini-h); font-size:12px; font-weight:600; color:var(--text-secondary);
+  margin:4px 0 6px;
+}
+.list-header.list-mini .header-main{ grid-column:1 / -2; display:grid; grid-template-columns:inherit; column-gap:inherit; height:var(--mini-h); align-items:center; }
+.list-header.list-mini .actions-title{ display:flex; align-items:center; justify-content:center; font-size:11px; }
+
+/* Linhas mini */
+.list-mini-row,
+.pedido-itens-rows .list-row,
+.op-rows .list-row{
+  display:grid; grid-template-columns:var(--cols, auto 1.4fr 0.6fr 0.6fr 0.6fr 0.9fr var(--actions-w, 80px)); column-gap:var(--mini-gap,8px);
+  align-items:center; min-height:var(--mini-h,28px); font-size:12px; background:var(--surface); border:1px solid var(--border-strong);
+  border-radius:var(--radius); padding:0 6px; transition:border-color .12s ease, box-shadow .12s ease;
+}
+.list-mini-row + .list-mini-row,
+.pedido-itens-rows .list-row + .list-row,
+.op-rows .list-row + .list-row{ margin-top:4px; }
+.list-mini-row:hover,
+.pedido-itens-rows .list-row:hover,
+.op-rows .list-row:hover{ border-color:var(--focus-ring-color); }
+.list-mini-row:focus-within,
+.pedido-itens-rows .list-row:focus-within,
+.op-rows .list-row:focus-within{ border-color:var(--focus-ring-color); box-shadow:0 0 0 1px var(--focus-ring-color) inset; }
+.list-mini-row > *,
+.pedido-itens-rows .list-row > *,
+.op-rows .list-row > *{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 4px; display:flex; align-items:center; }
+
+/* (2025-10) Aliases antigos (.list-header.mini.itens / .mini.op-list) removidos – usar apenas .list-mini */
+
+@media (max-width: 720px){
+  .list-header.list-mini,
+  .list-header.mini.itens,
+  .list-header.mini.op-list{ font-size:11px; }
+  .list-mini-row,
+  .pedido-itens-rows .list-row,
+  .op-rows .list-row{ font-size:11px; }
+}
+
+#avatar-wrap{
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+#avatar-box{
+  position:relative; width:132px; height:132px; border-radius:50%;
+  border:1px solid var(--border-strong); background:#fff; overflow:hidden;
+  box-shadow:var(--shadow-sm);
+}
+#avatar-img{
+  width:100%; height:100%; object-fit:cover; display:block;
+}
+#avatar-placeholder{
+  width:100%; height:100%; display:grid; place-items:center;
+  background:#f1f5f9; color:var(--text-tertiary);
+}
+#avatar-placeholder .lucide{ width:40px; height:40px; }
+
+/* Barra de ações: SEMPRE escondida por padrão — e centralizada */
+#avatar-box #avatar-actions{
+  position:absolute;
+  left:6px; right:6px; bottom:6px;
+  display:flex; gap:6px; align-items:center; justify-content:center;
+  opacity:0 !important; transform:translateY(4px); pointer-events:none !important;
+  transition:opacity .15s ease, transform .15s ease;
+  z-index:1;
+}
+
+/* Mostra SOMENTE no hover/focus (com ou sem foto) */
+#avatar-box:hover #avatar-actions,
+#avatar-box:focus-within #avatar-actions{
+  opacity:1 !important; transform:translateY(0); pointer-events:auto !important;
+}
+
+/* Controla quais botões aparecem em cada estado */
+#avatar-box #avatar-actions .icon-btn{ display:none; }
+
+/* ========================================================================== */
+/* (Blocos de estratégia e aliases removidos — migração finalizada) */
+
+/* ========================================================================== */
+/* ======================  LIST COMPONENT BASE STYLES  ====================== */
+/* ========================================================================== */
+/* Objetivo: abstrair padrões repetidos das listas v2 -> futuras listas sem sufixo.
+  Implementação inicial NÃO remove nada existente. Uso opcional adicionando
+  classes nos templates: <div class="list-header ... list-header-base">.
+  Fase posterior: migrar seletores específicos para compor com essas bases. */
+
+.list-header-base{ display:grid; align-items:center; min-height:var(--btn-h); }
+.list-row-base{ display:grid; align-items:center; height:var(--btn-h); background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius); box-shadow:var(--shadow-sm); transition:border-color .12s ease, box-shadow .12s ease, transform .12s ease; }
+.list-row-base:hover{ transform:none; box-shadow:none; border-color:var(--focus-ring-color); }
+.list-row-base:focus-within{ border-color:var(--focus-ring-color); box-shadow:0 0 0 1px var(--focus-ring-color) inset; }
+.list-cells-base > *{ display:flex; align-items:center; justify-content:flex-start; text-align:left; padding:0 8px !important; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.list-actions-base{ display:flex; align-items:center; gap: var(--list-gap, 8px); }
+
+/* Variantes auxiliares */
+.list-row-mini{ height:var(--btn-h); font-size:var(--font-size-small); }
+
+/* NOTA: Mantemos tokens específicos (ex: --clientes-gap) até consolidar em --list-gap. */
+
+/* NOTA: Caso seja necessário isolar diferenças futuras, criar bloco incremental abaixo sem tocar nas regras originais. */
+#avatar-box #avatar-actions.no-foto  #btn-avatar-adicionar{ display:inline-grid; }  /* sem foto → só “+” */
+#avatar-box #avatar-actions.has-foto #btn-avatar-editar,
+#avatar-box #avatar-actions.has-foto #btn-avatar-remover{ display:inline-grid; }    /* com foto → câmera/lixeira */
+
+/* Botões */
+.icon-btn{
+  display:inline-grid; place-items:center;
+  width:30px; height:30px; min-width:30px;
+  border-radius:999px; border:1px solid var(--border-strong);
+  background:var(--surface); color:var(--text-primary);
+  box-shadow:var(--shadow-sm); cursor:pointer;
+}
+.icon-btn.primary{ background:var(--btn-primary); border-color:var(--btn-primary-strong); color:#fff; }
+.icon-btn.danger{ color:#b91c1c; border-color:#ef4444; background:#fff; }
+.icon-btn .lucide{ width:16px; height:16px; }
+
+#avatar-hint{ font-size:12px; color:var(--text-secondary); }
+
+/* Utilitário existente (mantido) */
+.is-off{ background:#f1f5f9; opacity:.55; pointer-events:none; }
+
+/* ========================================================================== */
+/* ==================  MULTI-CARD & OUTROS UTILITÁRIOS  ==================== */
+/* ========================================================================== */
+
+.multi-card-2{ display:grid; grid-template-columns:1fr 1fr; gap:var(--form-gap); }
+.multi-card-3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--form-gap); }
+/* Tight spacing variant (requested 2px) applied when parent has data-tight-cards or specific id */
+#card-trio-tratamento.multi-card-3, .multi-card-3.is-tight { gap:2px; }
+
+/* Popover / menus */
+.popover{
+  position:absolute; background:var(--surface); border:1px solid var(--border-strong);
+  border-radius:var(--radius); box-shadow:var(--shadow-md); padding:8px; z-index:1000; min-width:240px;
+}
+.menu-title{ font-size:12px; font-weight:400; color:var(--text-secondary); margin:2px 2px 8px; }
+
+/* Pills (filtros) */
+.pill-row{ display:flex; flex-wrap:wrap; gap:6px; }
+.pill{ padding:0 10px; min-height:28px; line-height:1; font-weight:400; }
+.pill.active{ background:var(--btn-primary); border-color:var(--btn-primary-strong); color:#fff; }
+
+/* ===================== Sort & Filter (acabamento) ===================== */
+
+#grp-ordenar{ overflow:hidden; }
+#grp-ordenar .input-chip{ background:var(--bg); border-right:1px solid var(--border-strong); }
+#grp-ordenar #sort-field, #grp-ordenar #sort-toggle{
+  height:var(--btn-h); padding:0 12px; background:transparent; border:0; box-shadow:none; font-weight:400;
+}
+#grp-ordenar #sort-field{
+  display:inline-flex; align-items:center; gap:8px; background:var(--surface);
+  border-left:1px solid var(--border-strong);
+}
+#grp-ordenar #sort-toggle{ width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; line-height:1; }
+#grp-ordenar #sort-field:hover, #grp-ordenar #sort-toggle:hover{ background:#f8fafc; }
+#grp-ordenar #sort-field:focus-visible, #grp-ordenar #sort-toggle:focus-visible{ outline:0; box-shadow:0 0 0 3px var(--btn-focus-ring); }
+#grp-ordenar #sort-toggle[data-dir="desc"] i{ transform:rotate(180deg); transition:transform .12s ease; }
+
+#grp-filtro{ border:0; box-shadow:none; background:transparent; padding:0; height:auto; }
+#grp-filtro .input-chip#filter-btn{
+  display:inline-flex; align-items:center; gap:6px; height:var(--btn-h); padding:0 12px;
+  background:var(--surface); color:var(--text-primary); border:1px solid var(--border-strong);
+  border-radius:var(--radius); box-shadow:var(--shadow-sm); font-weight:400;
+}
+#grp-filtro .input-chip#filter-btn:hover{ background:#f8fafc; }
+#grp-filtro .input-chip#filter-btn:focus-visible{ outline:0; box-shadow:0 0 0 3px var(--btn-focus-ring); }
+#grp-filtro .input-chip{ border-right:0; }
+
+#filter-menu, #sort-menu{
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:10px;
+  box-shadow:0 12px 28px rgba(0,0,0,.10); padding:12px; min-width:520px; font-family:var(--font-sans);
+}
+.menu-list{ display:flex; flex-direction:column; gap:6px; max-height:260px; overflow:auto; }
+.menu-item{
+  display:flex; align-items:center; width:100%; border:1px solid var(--border-strong);
+  background:var(--surface); border-radius:calc(var(--radius) + 2px); padding:6px 10px; cursor:pointer; font-weight:400;
+}
+.menu-item.active{ background:#f1f5f9; }
+.menu-item:hover{ background:#f8fafc; }
+#filter-menu .pill{
+  display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 10px;
+  border:1px solid var(--border-strong); border-radius:999px; background:#fff; color:var(--text-primary); font-weight:400;
+}
+#filter-menu .pill:hover{ background:#f8fafc; }
+#filter-menu .pill.is-active{ border-color:var(--btn-primary); background:rgba(0,150,160,.08); color:#036a71; }
+#filter-menu .menu-check{
+  margin-top:8px; max-height:220px; overflow:auto; padding-right:4px;
+  border-top:1px solid #eef2f7; padding-top:8px;
+}
+#filter-menu .menu-check label{
+  display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; font-weight:400; color:var(--text-primary);
+}
+#filter-menu .menu-check label:hover{ background:#f8fafc; }
+#filter-menu .menu-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+#filter-menu .menu-actions .btn{ font-weight:400; }
+#filter-menu .menu-actions .btn.secondary{
+  background:#fff; border:1px solid var(--border-strong); box-shadow:var(--shadow-sm);
+}
+
+.toolbar .filters{ gap:10px; }
+.btn .lucide{ width:16px; height:16px; }
+
+/* ========================================================================== */
+/* ===========================  SERVIÇOS (UI)  ============================= */
+/* ========================================================================== */
+
+/* garante mesma altura dos outros controls */
+.svcbox{ min-height: var(--btn-h); height: var(--btn-h); }
+
+/* lista de chips alinhada verticalmente */
+.svc-pills{
+  display:flex;                 /* centraliza verticalmente os chips */
+  height:100%;
+  align-items:center;
+  white-space:nowrap;
+  overflow-x:auto;
+  overflow-y:hidden;
+}
+
+/* pills (chips) — visual de chip, não mini-card */
+.svc-pills .btn.pill{
+  display:inline-flex;          /* centraliza o texto no eixo vertical */
+  align-items:center;
+  justify-content:center;
+
+  font-size:12px;
+  line-height:1;
+  height:auto;                  /* neutraliza altura do .btn padrão */
+  min-height:20px;              /* menor que --btn-h */
+  padding:2px 8px;              /* compacto */
+
+  border-radius:999px;
+  border:1px solid var(--border-strong);
+  background:#fff;
+  box-shadow:none;              /* sem “cartão” */
+}
+.svc-pills .btn.pill:hover{ background:#f8fafc; }
+.svc-pills .btn.pill.is-selected{
+  border-color:var(--btn-primary);
+  background:rgba(0,150,160,.08);
+  color:#036a71;
+}
+
+/* “bolinhas” menores */
+.svc-round,
+#chip-rem-servico,
+#svc-list-box .input-chip {
+  height:22px;
+  min-width:22px;
+  width:22px;
+  border-radius:999px;
+  padding:0;
+  display:inline-grid;
+  place-items:center;
+  border:1px solid var(--border-strong);
+  background:var(--surface);
+}
+#svc-list-box .input-chip{
+  border-radius:999px;
+  border-color:var(--border-strong);
+  background:var(--surface);
+}
+.svc-round .lucide,
+#chip-rem-servico .lucide,
+#svc-list-box .input-chip .lucide{ width:14px; height:14px; }
+
+/* posicionamento do “−” no canto direito da caixa esquerda */
+#chip-rem-servico{
+  position:absolute;
+  right:6px;
+  left:auto;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:1;
+  display:none;
+}
+
+/* grade 80/20 “visual” (4fr/1fr) — cards colados */
+.svc-pair{ display:grid; grid-template-columns:3.5fr 1.5fr; gap:2px; width:100%; }
+
+/* altura exatamente = var(--btn-h) */
+#svc-list-card, #svc-add-card{ height:var(--btn-h); min-height:var(--btn-h); }
+#svc-list-card .field-chip, #svc-add-card .field-chip,
+#svc-list-card .control,    #svc-add-card .control{ height:100%; }
+#svc-list-card .control, #svc-add-card .control{
+  padding:0 8px; display:flex; align-items:center; gap:6px;
+}
+
+.svc-list-wrap{ position:relative; width:100%; min-width:0; }
+
+/* reforço de tamanho para os chips dentro da lista (pode ajustar 11–12px) */
+#servicos-chips .btn.pill{
+  font-size:11px;
+  line-height:1;
+  min-height:20px;
+  padding:2px 8px;
+}
+
+.svc-mini-btn{
+  height:18px; width:18px; min-width:18px; display:inline-grid; place-items:center;
+  border-radius:999px; border:1px solid var(--border-strong);
+  background:var(--surface); font-size:11px; font-weight:700; line-height:1;
+}
+.svc-mini-btn[disabled]{ opacity:.6; cursor:not-allowed; }
+
+/* ========================================================================== */
+/* ============== PADRONIZAÇÃO CLIENTES  x  PARCEIROS (CSS) ================ */
+/* ========================================================================== */
+/* Objetivo: Parceiros usa o MESMO layout do Clientes, apenas com CSS.
+   Não mexe no HTML: só aplicamos as mesmas grades dos cards equivalentes. */
+
+#parceiros-form .form-row{ grid-template-columns: var(--form-lead) minmax(0, var(--form-card)) var(--form-trail); }
+#parceiros-form .field-label,
+#parceiros-form .row-label{
+  justify-self:end;
+  text-align:right;
+  justify-content:flex-end;
+}
+@media (max-width: 720px){
+  #parceiros-form .form-row{ grid-template-columns:1fr; }
+  #parceiros-form .field-label,
+  #parceiros-form .row-label{
+    justify-self:start;
+    text-align:left;
+    justify-content:flex-start;
+  }
+}
+
+/* ——— Endereço / Bairro (7/3) */
+#clientes-form #card-endereco,
+#parceiros-form #card-endereco{
+  grid-template-columns: 40px 7fr 40px 3fr;
+}
+#clientes-form #card-endereco .field-chip:not(:first-of-type),
+#parceiros-form #card-endereco .field-chip:not(:first-of-type){
+  border-left:1px solid var(--border-strong);
+}
+
+/* ——— Complemento / CEP (1fr / 120px) */
+/* (2025-09) Override específico de clientes removido: split-2 volta ao padrão fluido (40px 1fr 40px 1fr). */
+#parceiros-form #card-pais-complemento{
+  grid-template-columns: 40px 1fr 40px 120px;
+}
+#parceiros-form #card-pais-complemento .field-chip:not(:first-of-type){
+  border-left:1px solid var(--border-strong);
+}
+
+/* ——— Localização (Cidade / UF / País) => 1fr / 72px / 160px */
+#clientes-form .field-card.split-3,
+#clientes-form .field-card.split-3-equal{
+  grid-template-columns: 40px 1fr 40px 72px 40px 160px;
+}
+#parceiros-form #card-cep-cidade-uf{
+  grid-template-columns: 40px 1fr 40px 72px 40px 160px;
+}
+#parceiros-form #card-cep-cidade-uf .field-chip:not(:first-of-type){
+  border-left:1px solid var(--border-strong);
+}
+
+/* ========================================================================== */
+/* =========================  EMBALAGENS — NCM (UI)  ======================== */
+/* ========================================================================== */
+
+/* util: monoespaçada p/ códigos */
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  letter-spacing: .01em;
+}
+
+/* popover de autocomplete do NCM — usa o mesmo .popover base */
+#ncm-menu{ min-width:420px; }
+#ncm-menu .menu-item{
+  display:grid; grid-template-columns:96px 1fr; gap:8px; align-items:center;
+}
+#ncm-menu .menu-item .mono{ opacity:.9; }
+
+/* ---- Nada de hint/badge dentro do card. Tudo vai para o banner global. ---- */
+#card-ncm{ position: static !important; }
+#card-ncm .seg{ display: none !important; }
+#card-ncm #ncm-hint{ display: none !important; }
+/* remove o padding extra que tínhamos colocado no input */
+#card-ncm input#ncm{ padding-right: revert; }  /* (ou use 8px se preferir) */
+
+/* ========================================================================== */
+/* ============================= GLOBAL NOTICE ============================== */
+/* ========================================================================== */
+
+/* mesmo trilho visual dos cards */
+.form-cards > .notice-slot{ margin: 6px 0 12px; }
+/* slot global nas páginas (entre main-title e conteúdo) */
+.app-main > .notice-slot,
+.main-title + .notice-slot{ margin: 8px 0 16px; }
+
+.notice{
+  --notice-warn-bg:#fcd9b0; /* aproximação do exemplo */
+  --notice-warn-border:#f3ae63;
+  --notice-warn-fg:#6b3d00;
+  display:flex; align-items:center; gap:6px;
+  padding:4px 10px; /* bem mais baixo */
+  border-radius:4px;
+  font-size:12px; line-height:1.25;
+  border:1px solid var(--notice-warn-border);
+  background:var(--notice-warn-bg);
+  color:var(--notice-warn-fg);
+}
+.notice[hidden]{ display:none; }
+.notice i[data-lucide]{ width:16px; height:16px; stroke-width:1.75; }
+.notice .notice-close{
+  margin-left:auto; border:0; background:transparent; font-size:16px;
+  line-height:1; cursor:pointer; color:inherit; padding:2px 6px;
+}
+
+/* variantes (caso use) */
+.notice.info    { border-color:#9ec3ff; background:#eef5ff; color:#0f3a8a; }
+.notice.success { border-color:#7ad19f; background:#ecfbf3; color:#0b5c3a; }
+.notice.error   { border-color:#f2a3a3; background:#fdecec; color:#7a1111; }
+.notice.warn, .notice.warning { border-color:var(--notice-warn-border); background:var(--notice-warn-bg); color:var(--notice-warn-fg); }
+
+/* (garantia) desliga qualquer hint antigo dentro do card NCM */
+#card-ncm .seg, #card-ncm #ncm-hint{ display:none !important; }
+
+/* (Removido bloco legado pedidos-v2) */
+
+/* ========================================================================== */
+/* ==================  PEDIDO FORM CONTÍNUO (TIMELINE)  ===================== */
+/* ========================================================================== */
+.pedido-continuo .pedido-timeline{ position:sticky; top:0; z-index:30; background:var(--bg); padding:8px 0 4px; margin:0 0 16px; border-bottom:1px solid var(--border-strong); }
+.pedido-continuo .pedido-timeline ul{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
+.pedido-continuo .pedido-timeline a{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-decoration:none; color:var(--text-secondary); font-size:11px; padding:6px 8px; min-width:58px; border:1px solid transparent; border-radius:6px; transition:.15s; position:relative; }
+.pedido-continuo .pedido-timeline a i[data-lucide]{ width:18px; height:18px; stroke-width:1.75; }
+.pedido-continuo .pedido-timeline .tl-item.active a{ background:var(--surface); color:var(--text-primary); border-color:var(--border-strong); box-shadow:var(--shadow-sm); }
+.pedido-continuo .pedido-timeline .tl-item.visited:not(.active) a{ color:var(--text-primary); }
+.pedido-continuo .pedido-timeline a:focus-visible{ outline:2px solid var(--btn-focus-ring); outline-offset:2px; }
+.pedido-continuo .pedido-form-continuo{ display:flex; flex-direction:column; gap:32px; }
+.pedido-continuo .pedido-section .fc-head{ scroll-margin-top:80px; }
+.pedido-continuo .pedido-section{ scroll-margin-top:90px; }
+.pedido-continuo .pedido-section-enter{ animation:fadeIn .25s ease; }
+@keyframes fadeIn{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
+@media (max-width:780px){
+  .pedido-continuo .pedido-timeline ul{ gap:4px; }
+  .pedido-continuo .pedido-timeline a{ padding:6px 6px; font-size:10px; }
+}

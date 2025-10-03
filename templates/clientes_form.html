@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == 'edit' %}<title>Editar cliente — Sistema</title>
+  {% elif mode == 'view' %}<title>Ver cliente — Sistema</title>
+  {% else %}<title>Novo cliente — Sistema</title>{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set is_view = (mode == 'view') %}
+{% set is_edit = (mode == 'edit') %}
+{% set is_new  = (mode == 'new' or not mode) %}
+{% set ro = 'readonly' if is_view else '' %}
+{% set dis = 'disabled' if is_view else '' %}
+{% set c = cliente or {} %}
+
+<div class="app-track">
+  <h1 class="main-title">
+    {% if is_edit %}Editar cliente{% elif is_view %}Detalhes do cliente{% else %}Novo cliente{% endif %}
+  </h1>
+
+{# Notice fica para depois #}
+{# {% include "partials/_notice.html" %} #}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    // Flashes (se houver). Safe para ficar aqui mesmo sem o banner visual.
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+      App.Notice?.show({{ msg|tojson }}, {
+        type: {{ ('success' if cat in ['success','ok'] else 'error' if cat in ['error','danger'] else 'warn')|tojson }},
+        timeout: 4500
+      });
+    {% endfor %}
+    {% endwith %}
+    {% if error %}
+      App.Notice?.show({{ error|tojson }}, { type: "error", timeout: 5000 });
+    {% endif %}
+
+    // Validação leve no cliente
+    const form  = document.getElementById('clientes-form');
+    const razao = document.getElementById('razao_social');
+    const cnpj  = document.getElementById('cnpj');
+
+    if (form && razao && cnpj) {
+      form.addEventListener('submit', function (ev) {
+        const cnpjDigits = (cnpj.value || '').replace(/\D/g, '');
+        if (!(razao.value || '').trim() || cnpjDigits.length === 0) {
+          ev.preventDefault();
+          App.Notice?.show('Preencha Razão social e CNPJ.', { type: 'warn', timeout: 4500 });
+          (razao.value.trim() ? cnpj : razao).focus();
+        }
+      });
+    }
+  });
+</script>
+
+<form id="clientes-form" method="post"
+      action="{% if is_new %}{{ url_for('client_new_page') }}
+              {% elif is_edit and cliente %}{{ url_for('clientes_update', id=c.get('id')) }}
+              {% else %}#{% endif %}"
+      novalidate>
+
+  <div class="form-cards">
+    <!-- Código do Cliente -->
+    <div class="form-row">
+      <label class="field-label" for="codigo_interno">Código</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="tag"></i></div>
+        {% set code_val = (c.get('codigo_interno') if c and c.get('codigo_interno') else (preview_code if is_new else '')) %}
+        <input class="control" type="text" id="codigo_interno" name="codigo_interno"
+               value="{{ code_val }}" placeholder="C00000" maxlength="6"
+               {% if is_new %}readonly{% elif not session.get('user_papel') or session.get('user_papel') != 'admin' %}readonly{% endif %}>
+      </div>
+      {% if is_new %}<div class="field-hint">Gerado ao salvar</div>{% elif not session.get('user_papel') or session.get('user_papel') != 'admin' %}<div class="field-hint">Somente leitura</div>{% endif %}
+    </div>
+
+  <!-- Razão social -->
+    <div class="form-row">
+  <label class="field-label" for="razao_social">Razão social*</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="building-2"></i></div>
+        <input class="control" type="text" id="razao_social" name="razao_social"
+               required placeholder="Ex.: ACME Indústria Ltda."
+               autocomplete="organization"
+               value="{{ request.form.get('razao_social') or c.get('razao_social') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- CNPJ -->
+    <div class="form-row">
+      <label class="field-label" for="cnpj">CNPJ*</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="hash"></i></div>
+        <input class="control" type="text" id="cnpj" name="cnpj"
+               inputmode="numeric" pattern="[0-9\.\/-]*" maxlength="18"
+               placeholder="00.000.000/0000-00" required
+               data-mask="cnpj"
+               autocomplete="off"
+               value="{{ request.form.get('cnpj') or c.get('cnpj') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+
+  <!-- Endereço / bairro -->
+    <div class="form-row">
+  <label class="field-label">Endereço / bairro</label>
+      <div class="field-card split-endereco">
+        <div class="field-chip"><i data-lucide="map-pin"></i></div>
+        <input class="control" type="text" id="endereco" name="endereco"
+               placeholder="Rua, nº, logradouro"
+               autocomplete="address-line1"
+               value="{{ request.form.get('endereco') or c.get('endereco') or c.get('rua') or '' }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="map"></i></div>
+        <input class="control" type="text" id="bairro" name="bairro"
+               placeholder="Bairro"
+               autocomplete="address-level3"
+               value="{{ request.form.get('bairro') or c.get('bairro') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+  <!-- Complemento / CEP -->
+    <div class="form-row">
+      <label class="field-label">Complemento / CEP</label>
+      <div class="field-card split-2">
+        <div class="field-chip"><i data-lucide="home"></i></div>
+        <input class="control" type="text" id="complemento" name="complemento"
+               placeholder="Apto, sala, referência..."
+               autocomplete="address-line2"
+               value="{{ request.form.get('complemento') or c.get('complemento') or '' }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="locate-fixed"></i></div>
+        <input class="control" type="text" id="cep" name="cep"
+               inputmode="numeric" pattern="[0-9\-]*" maxlength="9"
+               placeholder="00000-000"
+               data-mask="cep"
+               autocomplete="postal-code"
+               value="{{ request.form.get('cep') or c.get('cep') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+  <!-- Localização -->
+    <div class="form-row">
+      <label class="field-label">Localização</label>
+      <div class="field-card split-3-equal">
+        <div class="field-chip"><i data-lucide="building"></i></div>
+        <input class="control" type="text" id="cidade" name="cidade"
+               placeholder="Cidade"
+               autocomplete="address-level2"
+               value="{{ request.form.get('cidade') or c.get('cidade') or '' }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="flag"></i></div>
+        <input class="control" type="text" id="estado" name="estado"
+               maxlength="2" pattern="[A-Za-z]{2}" placeholder="UF"
+               autocomplete="address-level1"
+               value="{{ request.form.get('estado') or c.get('estado') or c.get('uf') or '' }}"
+               oninput="this.value=this.value.toUpperCase()"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="globe"></i></div>
+        <input class="control" type="text" id="pais" name="pais"
+               placeholder="Brasil"
+               autocomplete="country-name"
+               value="{{ request.form.get('pais') or c.get('pais') or 'Brasil' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+  <!-- Representante (cliente) -->
+    <div class="form-row">
+  <label class="field-label" for="contato_nome">Representante (cliente)</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="user"></i></div>
+        <input class="control" type="text" id="contato_nome" name="contato_nome"
+               placeholder="Nome do contato na empresa cliente"
+               autocomplete="name"
+               value="{{ request.form.get('contato_nome') or c.get('contato_nome') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+  <!-- E-mail -->
+    <div class="form-row">
+      <label class="field-label" for="contato_email">E-mail</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="mail"></i></div>
+        <input class="control" type="email" id="contato_email" name="contato_email"
+               placeholder="contato@cliente.com.br"
+               autocomplete="email"
+               value="{{ request.form.get('contato_email') or c.get('contato_email') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+  <!-- Telefone -->
+    <div class="form-row">
+      <label class="field-label" for="contato_telefone">Telefone</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="phone"></i></div>
+        <input class="control" type="tel" id="contato_telefone" name="contato_telefone"
+               placeholder="(00) 00000-0000"
+               inputmode="tel" maxlength="15" pattern="[\d\(\)\s\-]*"
+               data-mask="tel"
+               autocomplete="tel"
+               value="{{ request.form.get('contato_telefone') or c.get('contato_telefone') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+  <!-- Repres./comissão(%) -->
+    <div class="form-row">
+  <label class="field-label" for="representante">Repres./comissão(%)</label>
+      <div class="field-card split-2 tail-120">
+        <div class="field-chip"><i data-lucide="user-square-2"></i></div>
+        <input class="control" type="text" id="representante" name="representante"
+               placeholder="Nome do responsável comercial"
+               value="{{ request.form.get('representante') or c.get('representante') or '' }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="percent"></i></div>
+        <!-- IMPORTANTE: texto + inputmode decimal, alinhado à direita, sem .align-right -->
+        <input class="control" id="comissao_percent" name="comissao_percent"
+               type="text" inputmode="decimal" pattern="[0-9\.,]*"
+               placeholder="0,00" style="text-align:right"
+               value="{{ request.form.get('comissao_percent') or c.get('comissao_percent') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+  <!-- NCM padrão -->
+    <div class="form-row">
+      <label class="field-label" for="ncm_padrao">NCM padrão</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="file-text"></i></div>
+        <input class="control" type="text" id="ncm_padrao" name="ncm_padrao"
+               placeholder="Ex.: 3923.21.10"
+               inputmode="numeric" maxlength="10" pattern="[0-9\.]*"
+               data-mask="ncm"
+               autocomplete="off"
+               value="{{ request.form.get('ncm_padrao') or c.get('ncm_padrao') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+  <!-- Observações -->
+    <div class="form-row">
+  <label class="field-label" for="observacoes">Observações</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="sticky-note"></i></div>
+  <textarea class="control auto-grow" id="observacoes" name="observacoes" rows="1"
+      placeholder="Notas gerais, particularidades de faturamento, etc."
+      {{ ro }} {{ dis }}>{{ request.form.get('observacoes') or c.get('observacoes') or '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="form-actions">
+      <a class="btn" href="{{ url_for('clientes_page') }}"><i data-lucide="chevron-left"></i> Voltar</a>
+
+      {% if not is_view %}
+        <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar</button>
+      {% else %}
+        {% if cliente %}
+          <a class="btn" href="{{ url_for('clientes_edit_page', id=c.get('id')) }}">
+            <i data-lucide="pencil"></i> Editar
+          </a>
+        {% endif %}
+      {% endif %}
+    </div>
+
+  </div><!-- .form-cards -->
+ </form>
+</div><!-- /.app-track -->
+{% endblock %}

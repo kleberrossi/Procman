@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == 'edit' %}
+    <title>Editar colaborador — Sistema de gestão</title>
+  {% elif mode == 'view' %}
+    <title>Ver colaborador — Sistema de gestão</title>
+  {% else %}
+    <title>Novo colaborador — Sistema de gestão</title>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="app-track">
+  <h1 class="main-title">
+    {% if mode == 'edit' %}Editar colaborador{% elif mode == 'view' %}Ver colaborador{% else %}Novo colaborador{% endif %}
+  </h1>
+
+{# Flashes #}
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}
+    <div class="flash-stack" style="margin-bottom:12px;">
+      {% for cat, msg in msgs %}
+        <div class="flash-item {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        const items = document.querySelectorAll('.flash-stack .flash-item');
+        items.forEach(el => {
+          const cls = (el.className || '').split(/\s+/);
+          const cat = cls.find(c => ['success','ok','error','danger','warn'].includes(c)) || 'warn';
+            const type = (cat==='success'||cat==='ok') ? 'success' : (cat==='error'||cat==='danger') ? 'error' : 'warn';
+          App.Notice?.show(el.textContent.trim(), { type, timeout:5000 });
+        });
+      });
+    </script>
+  {% endif %}
+{% endwith %}
+
+<form id="colaboradores-form" method="post" enctype="multipart/form-data"
+  action="{% if mode == 'new' %}{{ url_for('colaboradores_new_page') }}{% elif mode == 'edit' %}{{ url_for('colaboradores_update', id=colaborador.id) }}{% else %}#{% endif %}">
+
+  {# ----------------- Avatar / Foto (fora da grade principal) ----------------- #}
+  {% set has_foto = colaborador and colaborador.foto_url %}
+  <div class="avatar-block" id="foto-bloco">
+    <div id="avatar-wrap">
+      <div id="avatar-box" aria-label="Foto do colaborador">
+        {% if has_foto %}
+          <img id="avatar-img" src="{{ colaborador.foto_url }}" alt="Foto do colaborador">
+        {% else %}
+          <div id="avatar-placeholder">
+            <i data-lucide="user"></i>
+          </div>
+        {% endif %}
+
+        <!-- Overlay de ações -->
+        <div id="avatar-actions" class="{{ 'has-foto' if has_foto else 'no-foto' }}">
+          <!-- Adicionar (SEM foto) -->
+          <button class="icon-btn primary" type="button" id="btn-avatar-adicionar" title="Adicionar foto" aria-label="Adicionar foto">
+            <i data-lucide="plus"></i>
+          </button>
+          <!-- Editar / Remover (COM foto) -->
+          <button class="icon-btn" type="button" id="btn-avatar-editar" title="Alterar foto" aria-label="Alterar foto">
+            <i data-lucide="camera"></i>
+          </button>
+          <button class="icon-btn danger" type="button" id="btn-avatar-remover" title="Remover foto" aria-label="Remover foto">
+            <i data-lucide="trash-2"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Inputs ocultos -->
+      <input type="file" id="avatar-file" name="foto" accept="image/*" hidden>
+      <input type="hidden" id="avatar-remove-flag" name="remove_foto" value="0">
+      {% if has_foto %}
+        <div id="avatar-hint" class="muted" aria-live="polite">Passe o mouse sobre a foto para alterar ou remover.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="form-cards">
+    {# ----------------- Dados principais ----------------- #}
+    <div class="form-row">
+      <label class="field-label" for="fld-nome">Nome</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="user"></i></div>
+        <input class="control" id="fld-nome" type="text" name="nome" value="{{ colaborador.nome if colaborador else '' }}" required>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="fld-email">E-mail</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="mail"></i></div>
+        <input class="control" id="fld-email" type="email" name="email" value="{{ colaborador.email if colaborador else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="fld-telefone">Telefone</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="phone"></i></div>
+        <input class="control" id="fld-telefone" type="text" name="telefone" value="{{ colaborador.telefone if colaborador else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="fld-cpf">CPF</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="id-card"></i></div>
+        <input class="control" id="fld-cpf" type="text" name="cpf" maxlength="14" placeholder="000.000.000-00"
+               value="{{ colaborador.cpf if colaborador and colaborador.cpf else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="fld-vinculo">Vínculo</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="briefcase"></i></div>
+        <select class="control" name="vinculo" id="fld-vinculo">
+        <option value="">—</option>
+        {# Use canonical values (no accents) for DB CHECK compatibility; labels may contain accents #}
+        {% for val, label in [('CLT','CLT'), ('PJ','PJ'), ('ESTAGIO','Estágio')] %}
+          <option value="{{ val }}" {{ 'selected' if colaborador and colaborador.vinculo == val else '' }}>{{ label }}</option>
+        {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="fld-parceiro">Parceiro</label>
+      <div class="field-card" id="card-parceiro">
+        <div class="field-chip"><i data-lucide="users"></i></div>
+        <select class="control" name="parceiro_id" id="fld-parceiro">
+        <option value="">—</option>
+        {% for p in parceiros %}
+          <option value="{{ p.id }}" {{ 'selected' if colaborador and colaborador.parceiro_id == p.id else '' }}>
+            {{ p.razao_social }}
+          </option>
+        {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="fld-setor">Setor</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="layers"></i></div>
+        <select class="control" id="fld-setor" name="setor">
+        <option value="">—</option>
+        {# Use unaccented values that match DB CHECK; labels keep accents for display #}
+        {% for val, label in [
+            ('producao','produção'), ('impressao','impressão'), ('qualidade','qualidade'),
+            ('pcp','pcp'), ('logistica','logística'), ('manutencao','manutenção'), ('outro','outro')
+        ] %}
+          <option value="{{ val }}" {{ 'selected' if colaborador and colaborador.setor == val else '' }}>{{ label|capitalize }}</option>
+        {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="fld-cargo">Cargo</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="id-card"></i></div>
+        <input class="control" id="fld-cargo" type="text" name="cargo" value="{{ colaborador.cargo if colaborador else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="field-label" for="fld-ativo">Situação</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="toggle-left"></i></div>
+        <select class="control" id="fld-ativo" name="ativo">
+        <option value="1" {{ 'selected' if colaborador and colaborador.ativo else '' }}>Ativo</option>
+        <option value="0" {{ 'selected' if colaborador and not colaborador.ativo else '' }}>Inativo</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+  <label class="field-label" for="fld-acesso-nivel">Nível de acesso</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="shield"></i></div>
+        <select class="control" name="acesso_nivel" id="fld-acesso-nivel">
+        {% set nivel_atual = colaborador.acesso_nivel if colaborador and colaborador.acesso_nivel else 'nenhum' %}
+        {% for val,label in [ ('nenhum','Nenhum'), ('basico','Básico'), ('operacional','Operacional'), ('gestor','Gestor'), ('admin','Admin') ] %}
+          <option value="{{ val }}" {{ 'selected' if nivel_atual == val else '' }}>{{ label }}</option>
+        {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row" id="row-usuario-vinculado">
+      <label class="field-label" for="fld-usuario-id">Usuário (login)</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="user-check"></i></div>
+        <select class="control" name="usuario_id" id="fld-usuario-id">
+        <option value="">—</option>
+        {% if usuarios %}
+          {% for u in usuarios %}
+            <option value="{{ u.id }}" {{ 'selected' if colaborador and colaborador.usuario_id == u.id else '' }}>
+              {{ u.nome }} ({{ u.email }})
+            </option>
+          {% endfor %}
+        {% endif %}
+        </select>
+      </div>
+    </div>
+  </div><!-- /.form-cards -->
+
+  <div class="form-actions">
+    <a class="btn" href="{{ url_for('colaboradores_page') }}"><i data-lucide="chevron-left"></i> Voltar</a>
+    {% if mode != 'view' %}
+      <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar</button>
+    {% endif %}
+  </div>
+</form>
+
+{# ===== Styles do avatar (escopados) ===== #}
+<style>
+  #avatar-wrap{
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
+  #avatar-box{
+    position:relative; width:132px; height:132px; border-radius:50%;
+    border:1px solid var(--border-strong); background:#fff; overflow:hidden;
+    box-shadow:var(--shadow-sm);
+  }
+  #avatar-img{
+    width:100%; height:100%; object-fit:cover; display:block;
+  }
+  #avatar-placeholder{
+    width:100%; height:100%; display:grid; place-items:center;
+    background:#f1f5f9; color:var(--text-tertiary);
+  }
+  #avatar-placeholder .lucide{ width:40px; height:40px; }
+
+  /* Barra de ações na base do círculo */
+  #avatar-actions{
+    position:absolute;
+    left:6px; right:6px; bottom:6px;
+    display:flex; gap:6px; align-items:center;
+    justify-content:flex-end; /* padrão: direita */
+    opacity:0; transform:translateY(4px); pointer-events:none;
+    transition:opacity .15s ease, transform .15s ease;
+    z-index:1;
+  }
+  /* Aparece no hover quando TEM foto */
+  #avatar-box:hover #avatar-actions,
+  #avatar-box:focus-within #avatar-actions{
+    opacity:1; transform:translateY(0); pointer-events:auto;
+  }
+  /* SEM foto: centraliza o + e mostra sempre */
+  #avatar-actions.no-foto{
+    justify-content:center;
+    opacity:1; transform:none; pointer-events:auto;
+  }
+
+  /* Mostra/esconde botões por estado */
+  #avatar-actions .icon-btn{ display:none; }
+  #avatar-actions.no-foto  #btn-avatar-adicionar{ display:inline-grid; }
+  #avatar-actions.has-foto #btn-avatar-editar,
+  #avatar-actions.has-foto #btn-avatar-remover{ display:inline-grid; }
+
+  .icon-btn{
+    display:inline-grid; place-items:center;
+    width:30px; height:30px; min-width:30px;
+    border-radius:999px; border:1px solid var(--border-strong);
+    background:var(--surface); color:var(--text-primary);
+    box-shadow:var(--shadow-sm); cursor:pointer;
+  }
+  .icon-btn.primary{ background:var(--btn-primary); border-color:var(--btn-primary-strong); color:#fff; }
+  .icon-btn.danger{ color:#b91c1c; border-color:#ef4444; background:#fff; }
+  .icon-btn .lucide{ width:16px; height:16px; }
+
+  #avatar-hint{ font-size:12px; color:var(--text-secondary); }
+
+  /* Desliga parceiro quando não for PJ */
+  .is-off{ background:#f1f5f9; opacity:.55; pointer-events:none; }
+</style>
+
+<script>
+  (function(){
+    function icones(){ if (window.lucide) lucide.createIcons(); }
+    const $ = (sel) => document.querySelector(sel);
+
+    const fileInput   = $('#avatar-file');
+    const removeFlag  = $('#avatar-remove-flag');
+    const actions     = document.getElementById('avatar-actions');
+
+    const btnAdd  = $('#btn-avatar-adicionar');
+    const btnEdit = $('#btn-avatar-editar');
+    const btnDel  = $('#btn-avatar-remover');
+
+    function setFotoState(has){
+      if (!actions) return;
+      actions.classList.toggle('has-foto', !!has);
+      actions.classList.toggle('no-foto', !has);
+      actions.setAttribute('aria-hidden', has ? 'true' : 'false'); // A11y coerente
+    }
+
+    // Estado inicial coerente (garante aria-hidden correto)
+    setFotoState(!!document.getElementById('avatar-img'));
+
+    // Clicks
+    if (btnAdd)  btnAdd.addEventListener('click', ()=> fileInput.click());
+    if (btnEdit) btnEdit.addEventListener('click', ()=> { removeFlag.value='0'; fileInput.click(); });
+    if (btnDel)  btnDel.addEventListener('click', ()=>{
+      removeFlag.value = '1';
+      const img = document.getElementById('avatar-img');
+      if (img) img.remove();
+      if (!document.getElementById('avatar-placeholder')){
+        const ph = document.createElement('div');
+        ph.id='avatar-placeholder';
+        ph.innerHTML = '<i data-lucide="user"></i>';
+        document.getElementById('avatar-box').prepend(ph);
+        icones();
+      }
+      setFotoState(false); // volta a mostrar o +
+    });
+
+    // Seleção de arquivo → preview + estado
+    if (fileInput) fileInput.addEventListener('change', ()=>{
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      removeFlag.value = '0';
+      const url = URL.createObjectURL(f);
+      const ph = document.getElementById('avatar-placeholder');
+      if (ph) ph.remove();
+      let pic = document.getElementById('avatar-img');
+      if (!pic){
+        pic = document.createElement('img');
+        pic.id = 'avatar-img';
+        pic.alt = 'Foto do colaborador';
+        document.getElementById('avatar-box').prepend(pic);
+      }
+      pic.src = url;
+      setFotoState(true); // mostra editar/remover
+      icones();
+    });
+
+    // Parceiro obrigatório quando vínculo = PJ
+    const vinc         = document.getElementById('fld-vinculo');
+    const cardParceiro = document.getElementById('card-parceiro');
+    const parceiro     = document.getElementById('fld-parceiro');
+
+    function updateParceiroState(){
+      const isPJ = (vinc?.value || '').toUpperCase() === 'PJ';
+      cardParceiro?.classList.toggle('is-off', !isPJ);
+      if (parceiro) parceiro.required = !!isPJ;
+      if (!isPJ && parceiro) parceiro.value = '';
+    }
+    if (vinc && cardParceiro && parceiro){
+      updateParceiroState();
+      vinc.addEventListener('change', updateParceiroState);
+    }
+
+    icones();
+
+    // Controle de nível de acesso -> exige usuário
+    const acesso = document.getElementById('fld-acesso-nivel');
+    const rowUsuario = document.getElementById('row-usuario-vinculado');
+    const usuarioSel = document.getElementById('fld-usuario-id');
+    function updateAcesso(){
+      const v = (acesso?.value || 'nenhum');
+      const exige = v !== 'nenhum';
+      rowUsuario?.classList.toggle('is-off', !exige);
+      if (usuarioSel) usuarioSel.required = !!exige;
+    }
+    if (acesso){
+      updateAcesso();
+      acesso.addEventListener('change', updateAcesso);
+    }
+
+    // Máscara leve CPF (somente formatação visual)
+    const cpfInput = document.querySelector('input[name="cpf"]');
+    if (cpfInput){
+      cpfInput.addEventListener('input', ()=>{
+        let d = (cpfInput.value || '').replace(/\D/g,'').slice(0,11);
+        let f = d;
+        if (d.length > 9) f = d.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, (m,a,b,c,x)=> x?`${a}.${b}.${c}-${x}`:`${a}.${b}.${c}`);
+        else if (d.length > 6) f = d.replace(/(\d{3})(\d{3})(\d{0,3})/, (m,a,b,c)=> c?`${a}.${b}.${c}`:`${a}.${b}`);
+        else if (d.length > 3) f = d.replace(/(\d{3})(\d{0,3})/, (m,a,b)=> b?`${a}.${b}`:a);
+        cpfInput.value = f;
+      });
+    }
+  })();
+</script>
+</div><!-- /.app-track -->
+{% endblock %}

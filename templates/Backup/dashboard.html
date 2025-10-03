@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}<title>Dashboard — Sistema de Embalagens</title>{% endblock %}
+
+{% block content %}
+<div class="app-track">
+  <h1 class="main-title">Dashboard</h1>
+
+  <!-- KPIs principais -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-title">Clientes</div>
+      <div class="kpi-value">128</div>
+      <div class="kpi-sub">ativos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">Pedidos</div>
+      <div class="kpi-value">54</div>
+      <div class="kpi-sub">em aberto</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">Produção</div>
+      <div class="kpi-value">12</div>
+      <div class="kpi-sub">ordens ativas</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">Expedição</div>
+      <div class="kpi-value">7</div>
+      <div class="kpi-sub">pendentes</div>
+    </div>
+  </div>
+
+  <!-- Blocos de conteúdo -->
+  <div class="content-grid">
+    <div class="content-block">
+      <div class="content-block-header">Ordens de Produção Recentes</div>
+      <div class="content-block-body">
+        <div class="item">
+          <div class="value">#OP-102</div>
+          <div class="label"><i data-lucide="scissors"></i> Corte &amp; Solda</div>
+        </div>
+        <div class="item">
+          <span class="badge warning">Em execução</span>
+        </div>
+      </div>
+      <div class="content-block-body">
+        <div class="item">
+          <div class="value">#OP-101</div>
+          <div class="label"><i data-lucide="brush"></i> Impressão</div>
+        </div>
+        <div class="item">
+          <span class="badge success">Concluída</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-block">
+      <div class="content-block-header">Expedições</div>
+      <div class="content-block-body">
+        <div class="item">
+          <div class="value">5</div>
+          <div class="label"><i data-lucide="truck"></i> Liberadas</div>
+        </div>
+        <div class="item">
+          <div class="value">2</div>
+          <div class="label"><i data-lucide="alert-triangle"></i> Pendentes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

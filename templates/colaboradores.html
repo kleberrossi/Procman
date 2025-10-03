@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "macros_btn_list_add.html" import btn_lista_adicionar %}
+{% block title %}<title>Colaboradores — Sistema de gestão de produção e processos</title>{% endblock %}
+
+{% block content %}
+<div class="app-track">
+<h1 class="main-title">Colaboradores</h1>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="filters">
+    <!-- Buscar -->
+    <div class="input-group">
+      <div class="input-chip"><i data-lucide="search"></i></div>
+      <input id="busca-colab" type="search" placeholder="Buscar colaborador…" aria-label="Buscar colaborador">
+    </div>
+
+    <!-- ORDENAR (IDs padronizados) -->
+    <div class="input-group" id="grp-ordenar">
+      <div class="input-chip" aria-hidden="true">
+        <i data-lucide="arrow-up-down"></i>
+      </div>
+
+      <button class="btn" id="sort-field" type="button"
+              aria-haspopup="menu" aria-expanded="false" title="Selecionar campo">
+        <span id="sort-label">Nome</span>
+        <i data-lucide="chevron-down" style="margin-left:6px"></i>
+      </button>
+
+      <button class="btn" id="sort-toggle" type="button" aria-label="Alternar direção"
+              style="width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center;">
+        <span id="sort-dir">↑</span>
+      </button>
+    </div>
+
+    <!-- FILTRAR (IDs padronizados) -->
+    <div class="input-group" id="grp-filtro">
+      <button class="input-chip" id="filter-btn" type="button" aria-haspopup="menu" aria-expanded="false">
+        <i data-lucide="filter"></i>
+        <span style="margin-left:6px">Filtrar</span>
+        <span id="filter-badge" class="badge" style="margin-left:6px; display:none;"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="actions">
+    {{ btn_lista_adicionar("Colaborador", href=url_for('colaboradores_new_page'), id="btn-adicionar-colaborador") }}
+  </div>
+</div>
+
+<!-- Header da lista -->
+<div class="list-header list-header-base cwb colaboradores">
+  <div class="header-main">
+    <div>Nome</div>
+    <div>Vínculo</div>
+    <div>Parceiro</div>
+    <div>Setor</div>
+    <div>Cargo</div>
+    <div>Situação</div>
+  </div>
+  <div class="actions-title">Ações</div>
+</div>
+
+<div id="colaboradores-list"></div>
+<p id="sem-dados" style="display:none;margin-top:1rem;color:var(--text-secondary);">
+  Nenhum colaborador cadastrado.
+</p>
+
+<!-- Menus -->
+<div id="sort-menu" class="popover" hidden>
+  <div class="menu-title">Classificar por</div>
+  <div class="menu-list" id="sort-fields-list"></div>
+</div>
+<div id="filter-menu" class="popover" hidden>
+  <div class="menu-title">Filtrar por</div>
+  <div id="filter-props" class="pill-row" style="margin-bottom:8px;"></div>
+  <div class="menu-list" id="filter-values"></div>
+  <div class="menu-actions">
+    <button class="btn" id="filter-clear-all" type="button"><i data-lucide="eraser"></i> Limpar tudo</button>
+    <button class="btn primary" id="filter-apply" type="button"><i data-lucide="check"></i> Aplicar</button>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=>{
+  if (window.lucide?.createIcons) lucide.createIcons();
+
+  const wrap   = document.querySelector('.avatar-uploader');
+  const imgEl  = document.getElementById('avatar-img');
+  const fileEl = document.getElementById('foto_file');
+  const addBtn = document.getElementById('avatar-add');
+  const remBtn = document.getElementById('avatar-remove');
+  const rmFlag = document.getElementById('foto_remove');
+
+  function setHasPhoto(flag){ wrap?.setAttribute('data-has-photo', flag ? '1' : '0'); }
+
+  addBtn?.addEventListener('click', ()=> fileEl?.click());
+
+  fileEl?.addEventListener('change', ()=>{
+    if (!fileEl.files || !fileEl.files[0]) return;
+    imgEl.src = URL.createObjectURL(fileEl.files[0]);
+    rmFlag.value = '0';
+    setHasPhoto(true); // troca + por −
+  });
+
+  remBtn?.addEventListener('click', ()=>{
+    imgEl.src = "{{ url_for('static', filename='img/user-placeholder.png') }}";
+    if (fileEl) fileEl.value = '';
+    rmFlag.value = '1';
+    setHasPhoto(false); // volta o +
+  });
+});
+</script>
+</div>
+{% endblock %}

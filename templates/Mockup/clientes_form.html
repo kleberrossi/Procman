@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == 'edit' %}<title>Editar cliente — Sistema</title>
+  {% elif mode == 'view' %}<title>Ver cliente — Sistema</title>
+  {% else %}<title>Novo cliente — Sistema</title>{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set is_view = (mode == 'view') %}
+{% set is_edit = (mode == 'edit') %}
+{% set is_new  = (mode == 'new' or not mode) %}
+{% set ro = 'readonly' if is_view else '' %}
+{% set dis = 'disabled' if is_view else '' %}
+{% set c = cliente or {} %} {# <-- SAFE alias: nunca é None #}
+
+<h1 class="main-title">
+  {% if is_edit %}Editar cliente{% elif is_view %}Detalhes do cliente{% else %}Novo cliente{% endif %}
+</h1>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}
+    {% for cat, msg in msgs %}
+      <div class="flash">{{ msg }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+{% if error %}
+  <div class="flash">{{ error }}</div>
+{% endif %}
+
+<form id="clientes-form" method="post"
+      action="{% if is_new %}{{ url_for('client_new_page') }}
+              {% elif is_edit and cliente %}{{ url_for('clientes_update', id=c.get('id')) }}
+              {% else %}#{% endif %}"
+      novalidate>
+
+  <div class="form-cards">
+
+    <!-- Razão social -->
+    <div class="form-row">
+      <label class="field-label" for="razao_social">Razão social*</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="building-2"></i></div>
+        <input class="control" type="text" id="razao_social" name="razao_social"
+               required placeholder="Ex.: ACME Indústria Ltda."
+               value="{{ request.form.get('razao_social') or c.get('razao_social') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- CNPJ -->
+    <div class="form-row">
+      <label class="field-label" for="cnpj">CNPJ*</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="hash"></i></div>
+        <input class="control" type="text" id="cnpj" name="cnpj"
+               inputmode="numeric" pattern="[0-9\.\/-]*"
+               placeholder="00.000.000/0000-00" required
+               value="{{ request.form.get('cnpj') or c.get('cnpj') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Código interno -->
+    <div class="form-row">
+      <label class="field-label" for="codigo_interno">Código interno</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="tag"></i></div>
+        <input class="control" type="text" id="codigo_interno" name="codigo_interno"
+               placeholder="Opcional"
+               value="{{ request.form.get('codigo_interno') or c.get('codigo_interno') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Endereço + Bairro -->
+    <div class="form-row">
+      <label class="field-label">Endereço / Bairro</label>
+      <div class="field-card split-endereco">
+        <div class="field-chip"><i data-lucide="map-pin"></i></div>
+        <input class="control" type="text" id="endereco" name="endereco"
+               placeholder="Rua, nº, logradouro"
+               value="{{ request.form.get('endereco') or c.get('endereco') or c.get('rua') or '' }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="map"></i></div>
+        <input class="control" type="text" id="bairro" name="bairro"
+               placeholder="Bairro"
+               value="{{ request.form.get('bairro') or c.get('bairro') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Complemento + CEP -->
+    <div class="form-row">
+      <label class="field-label">Complemento / CEP</label>
+      <div class="field-card split-2">
+        <div class="field-chip"><i data-lucide="home"></i></div>
+        <input class="control" type="text" id="complemento" name="complemento"
+               placeholder="Apto, sala, referência..."
+               value="{{ request.form.get('complemento') or c.get('complemento') or '' }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="locate-fixed"></i></div>
+        <input class="control" type="text" id="cep" name="cep"
+               inputmode="numeric" pattern="[0-9\-]*"
+               placeholder="00000-000"
+               value="{{ request.form.get('cep') or c.get('cep') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Cidade + UF + País (3 iguais) -->
+    <div class="form-row">
+      <label class="field-label">Localização</label>
+      <div class="field-card split-3-equal">
+        <div class="field-chip"><i data-lucide="building"></i></div>
+        <input class="control" type="text" id="cidade" name="cidade"
+               placeholder="Cidade"
+               value="{{ request.form.get('cidade') or c.get('cidade') or '' }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="flag"></i></div>
+        <input class="control" type="text" id="estado" name="estado"
+               maxlength="2" placeholder="UF"
+               value="{{ request.form.get('estado') or c.get('estado') or c.get('uf') or '' }}"
+               oninput="this.value=this.value.toUpperCase()" {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="globe"></i></div>
+        <input class="control" type="text" id="pais" name="pais"
+               placeholder="Brasil"
+               value="{{ request.form.get('pais') or c.get('pais') or 'Brasil' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Contato do cliente - nome -->
+    <div class="form-row">
+      <label class="field-label" for="contato_nome">Representante (cliente)</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="user"></i></div>
+        <input class="control" type="text" id="contato_nome" name="contato_nome"
+               placeholder="Nome do contato na empresa cliente"
+               value="{{ request.form.get('contato_nome') or c.get('contato_nome') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Contato do cliente - e-mail -->
+    <div class="form-row">
+      <label class="field-label" for="contato_email">E-mail</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="mail"></i></div>
+        <input class="control" type="email" id="contato_email" name="contato_email"
+               placeholder="contato@cliente.com.br"
+               value="{{ request.form.get('contato_email') or c.get('contato_email') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Contato do cliente - telefone -->
+    <div class="form-row">
+      <label class="field-label" for="contato_telefone">Telefone</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="phone"></i></div>
+        <input class="control" type="tel" id="contato_telefone" name="contato_telefone"
+               placeholder="(00) 00000-0000"
+               value="{{ request.form.get('contato_telefone') or c.get('contato_telefone') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Representante Noupack / comissão (%) -->
+    <div class="form-row">
+      <label class="field-label" for="representante">Representante/comissão (%)</label>
+      <div class="field-card split-2">
+        <div class="field-chip"><i data-lucide="user-square-2"></i></div>
+        <input class="control" type="text" id="representante" name="representante"
+               placeholder="Nome do responsável comercial"
+               value="{{ request.form.get('representante') or c.get('representante') or '' }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="percent"></i></div>
+        <input class="control align-right" type="number" step="0.01" min="0"
+               id="comissao_percent" name="comissao_percent"
+               placeholder="0,00"
+               value="{{ request.form.get('comissao_percent') or c.get('comissao_percent') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- NCM padrão -->
+    <div class="form-row">
+      <label class="field-label" for="ncm_padrao">NCM padrão</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="file-text"></i></div>
+        <input class="control" type="text" id="ncm_padrao" name="ncm_padrao"
+               placeholder="Ex.: 3923.21.10"
+               value="{{ request.form.get('ncm_padrao') or c.get('ncm_padrao') or '' }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Observações -->
+    <div class="form-row">
+      <label class="field-label" for="observacoes">Observações</label>
+      <div class="field-card">
+        <div class="field-chip"><i data-lucide="sticky-note"></i></div>
+        <textarea class="control" id="observacoes" name="observacoes" rows="3"
+                  placeholder="Notas gerais, particularidades de faturamento, etc."
+                  {{ ro }} {{ dis }}>{{ request.form.get('observacoes') or c.get('observacoes') or '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Ações -->
+    <div class="form-actions">
+      <a class="btn" href="{{ url_for('clientes_page') }}"><i data-lucide="chevron-left"></i> Voltar</a>
+
+      {% if not is_view %}
+        <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar</button>
+      {% else %}
+        {% if cliente %}
+          <a class="btn" href="{{ url_for('clientes_edit_page', id=c.get('id')) }}">
+            <i data-lucide="pencil"></i> Editar
+          </a>
+        {% endif %}
+      {% endif %}
+    </div>
+
+  </div>
+</form>
+{% endblock %}

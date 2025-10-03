@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+{% from "macros_btn_list_add.html" import btn_lista_adicionar %}
+{% block title %}<title>Parceiros — Sistema de gestão de produção e processos</title>{% endblock %}
+
+{% block content %}
+<div class="app-track">
+<h1 class="main-title">Parceiros</h1>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="filters">
+    <!-- Buscar -->
+    <div class="input-group">
+      <div class="input-chip"><i data-lucide="search"></i></div>
+      <input id="busca-parc" type="search" placeholder="Buscar parceiro…" aria-label="Buscar parceiro">
+    </div>
+
+    <!-- ORDENAR -->
+    <div class="input-group" id="grp-ordenar">
+      <div class="input-chip" aria-hidden="true">
+        <i data-lucide="arrow-up-down"></i>
+      </div>
+
+      <button class="btn" id="sort-field" type="button"
+              aria-haspopup="menu" aria-expanded="false" title="Selecionar campo">
+        <span id="sort-label">Razão social</span>
+        <i data-lucide="chevron-down" style="margin-left:6px"></i>
+      </button>
+
+      <button class="btn" id="sort-toggle" type="button" aria-label="Alternar direção"
+              style="width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center;">
+        <span id="sort-dir">↑</span>
+      </button>
+    </div>
+
+    <!-- FILTRAR -->
+    <div class="input-group" id="grp-filtro">
+      <button class="input-chip" id="filter-btn" type="button" aria-haspopup="menu" aria-expanded="false">
+        <i data-lucide="filter"></i>
+        <span style="margin-left:6px">Filtrar</span>
+        <span id="filter-badge" class="badge" style="margin-left:6px; display:none;"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="actions">
+    {{ btn_lista_adicionar("Parceiro", href=url_for('parceiros_new_page'), id="btn-adicionar-parceiro") }}
+  </div>
+</div>
+
+<!-- Header da lista -->
+<div class="list-header list-header-base cwb parceiros">
+  <div class="header-main">
+    <div>Código</div>
+    <div>Razão Social</div>
+    <div>CNPJ</div>
+    <div>Tipo</div>
+    <div>Cidade-UF</div>
+    <div>Serviços</div>
+  </div>
+  <div class="actions-title">Ações</div>
+</div>
+
+<div id="parceiros-list"></div>
+
+<p id="sem-dados" style="display:none;margin-top:1rem;color:var(--text-secondary);">
+  Nenhum parceiro cadastrado.
+</p>
+
+<!-- Menus -->
+<div id="sort-menu" class="popover" hidden>
+  <div class="menu-title">Classificar por</div>
+  <div class="menu-list" id="sort-fields-list"></div>
+</div>
+<div id="filter-menu" class="popover" hidden>
+  <div class="menu-title">Filtrar por</div>
+  <div id="filter-props" class="pill-row" style="margin-bottom:8px;"></div>
+  <div class="menu-list" id="filter-values"></div>
+  <div class="menu-actions">
+    <button class="btn" id="filter-clear-all" type="button"><i data-lucide="eraser"></i> Limpar tudo</button>
+    <button class="btn primary" id="filter-apply" type="button"><i data-lucide="check"></i> Aplicar</button>
+  </div>
+</div>
+
+<script>
+  function icones(){ if (window.lucide) lucide.createIcons(); }
+  const safe = (v) => (v == null ? '' : String(v));
+
+  // ===== Helpers =====
+  function formatCNPJDigits(d){
+    d = (d||'').replace(/\D/g,'').slice(0,14);
+    if (!d) return '';
+    let out = '';
+    if (d.length>0) out = d.slice(0,2);
+    if (d.length>2) out += '.' + d.slice(2,5);
+    if (d.length>5) out += '.' + d.slice(5,8);
+    if (d.length>8) out += '/' + d.slice(8,12);
+    if (d.length>12) out += '-' + d.slice(12,14);
+    return out;
+  }
+  function parseServicos(json){
+    try {
+      const v = typeof json === 'string' ? JSON.parse(json||'[]') : (json || []);
+      return Array.isArray(v) ? v.filter(Boolean) : [];
+    } catch(e){ return []; }
+  }
+  // Inicial maiúscula (preserva o resto do texto)
+  function capitalizeFirst(str){
+    if (!str) return str;
+    return str.replace(/^\p{L}/u, c => c.toUpperCase());
+  }
+
+  // ===== Campos para ORDER BY =====
+  const FIELDS = [
+    { key:'codigo',   label:'Código',       get:p=>safe(p.codigo_interno) },
+    { key:'razao',    label:'Razão social', get:p=>safe(p.razao_social) },
+    { key:'cnpj',     label:'CNPJ',         get:p=>safe(p.cnpj || '') },
+    { key:'tipo',     label:'Tipo',         get:p=>safe(p.tipo) },
+    { key:'cidadeuf', label:'Cidade/UF',    get:p=> (safe(p.cidade)+' '+safe(p.estado||p.uf)).trim() },
+    { key:'servicos', label:'Serviços',     get:p=>parseServicos(p.servicos_json).length },
+    { key:'ativo',    label:'Ativo',        get:p=>Number(p.ativo ? 1 : 0) },
+  ];
+
+  // ===== Propriedades filtráveis =====
+  const FILTER_PROPS = [
+    { key:'tipo',     label:'Tipo',     get:p=>safe(p.tipo) },
+    { key:'cidade',   label:'Cidade',   get:p=>safe(p.cidade) },
+    { key:'uf',       label:'UF',       get:p=>safe(p.estado || p.uf).toUpperCase() },
+    { key:'servico',  label:'Serviço',  get:p=>parseServicos(p.servicos_json).map(s=>String(s)).join('|§|') },
+    { key:'ativo',    label:'Ativo',    get:p=> (p.ativo ? 'Sim':'Não') },
+  ];
+
+  // ===== Estado =====
+  let PARC_DATA = [];
+  let sortField = 'razao';
+  let sortDir   = 'asc';
+  const filters = { tipo:new Set(), cidade:new Set(), uf:new Set(), servico:new Set(), ativo:new Set() };
+  let filterActiveProp = 'tipo';
+
+  // ===== UI refs =====
+  const ui = {
+    list: document.getElementById('parceiros-list'),
+  // Usar o mesmo id já presente no HTML (<p id="sem-dados"> ...)
+  vazio: document.getElementById('sem-dados'),
+    busca: document.getElementById('busca-parc'),
+
+    sortToggle: document.getElementById('sort-toggle'),
+    sortFieldBtn: document.getElementById('sort-field'),
+    sortMenu: document.getElementById('sort-menu'),
+    sortFieldsList: document.getElementById('sort-fields-list'),
+    sortLabel: document.getElementById('sort-label'),
+    sortDir: document.getElementById('sort-dir'),
+
+    filterBtn: document.getElementById('filter-btn'),
+    filterMenu: document.getElementById('filter-menu'),
+    filterProps: document.getElementById('filter-props'),
+    filterValues: document.getElementById('filter-values'),
+    filterApply: document.getElementById('filter-apply'),
+    filterClearAll: document.getElementById('filter-clear-all'),
+    filterBadge: document.getElementById('filter-badge'),
+  };
+
+  // ===== Base =====
+  function fieldDef(key){ return FIELDS.find(f=>f.key===key) || FIELDS[0]; }
+  function filterPropDef(key){ return FILTER_PROPS.find(f=>f.key===key) || FILTER_PROPS[0]; }
+
+  function updateSortChip(){
+    ui.sortLabel.textContent = fieldDef(sortField).label;
+    ui.sortDir.textContent   = (sortDir === 'asc') ? '↑' : '↓';
+  }
+  function updateFilterBadge(){
+    const total = Object.values(filters).reduce((n,set)=>n + set.size, 0);
+    if (total > 0) { ui.filterBadge.style.display='inline-block'; ui.filterBadge.textContent = total; }
+    else { ui.filterBadge.style.display='none'; ui.filterBadge.textContent = ''; }
+  }
+
+  // ===== Menus =====
+  function renderSortMenu(){
+    ui.sortFieldsList.innerHTML = '';
+    FIELDS.forEach(f=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'menu-item' + (f.key===sortField ? ' active' : '');
+      btn.textContent = f.label;
+      btn.addEventListener('click', ()=>{
+        sortField = f.key;
+        App.Pop.closeAll();
+        updateSortChip();
+        renderParceiros(getFilteredSortedData());
+      });
+      ui.sortFieldsList.appendChild(btn);
+    });
+    icones();
+  }
+
+  function uniqueValuesFor(key){
+    const get = filterPropDef(key).get;
+    const s = new Set();
+    for(const p of PARC_DATA){
+      const v = get(p);
+      if (!v) continue;
+      if (key === 'servico'){
+        v.split('|§|').forEach(x=>{ const vv = x.trim(); if (vv) s.add(vv); });
+      } else {
+        s.add(v);
+      }
+    }
+    return Array.from(s).sort((a,b)=>String(a).localeCompare(String(b), 'pt-BR', {sensitivity:'base', numeric:true}));
+  }
+
+  function renderFilterProps(){
+    ui.filterProps.innerHTML = '';
+    FILTER_PROPS.forEach(p=>{
+      const b = document.createElement('button');
+      b.type='button';
+      b.className = 'btn pill' + (p.key===filterActiveProp ? ' active' : '');
+      b.textContent = p.label;
+      b.addEventListener('click', ()=>{
+        filterActiveProp = p.key;
+        renderFilterProps();
+        renderFilterValues();
+      });
+      ui.filterProps.appendChild(b);
+    });
+  }
+
+  function renderFilterValues(){
+    ui.filterValues.innerHTML = '';
+    const key = filterActiveProp;
+    const values = uniqueValuesFor(key);
+    const selected = filters[key];
+
+    if (values.length === 0){
+      const p = document.createElement('div');
+      p.className = 'menu-empty';
+      p.textContent = 'Sem valores disponíveis.';
+      ui.filterValues.appendChild(p);
+      return;
+    }
+
+    values.forEach(v=>{
+      const id = 'fv-'+key+'-'+btoa(unescape(encodeURIComponent(v))).replace(/=/g,'');
+      const row = document.createElement('label');
+      row.className = 'menu-check';
+      row.innerHTML = `
+        <input type="checkbox" id="${id}" value="${v.replace(/"/g,'&quot;')}" ${selected.has(v) ? 'checked' : ''}>
+        <span class="ellipsis" title="${v.replace(/"/g,'&quot;')}">${v}</span>
+      `;
+      ui.filterValues.appendChild(row);
+    });
+  }
+
+  // ===== Renderização de linhas =====
+  function criaLinha(p){
+    const row = document.createElement('div');
+  row.className = 'list-row cwb parceiros';
+
+  const codigo  = safe(p.codigo_interno || '—');
+  const razao   = safe(p.razao_social || '-');
+    const cnpjFmt = formatCNPJDigits(safe(p.cnpj));
+    // (1) Tipo com inicial maiúscula
+    const tipo    = capitalizeFirst(safe(p.tipo || '-'));
+  const cidade  = safe(p.cidade || '-');
+  const uf      = safe(p.estado || p.uf).toUpperCase() || '—';
+
+    const servs   = parseServicos(p.servicos_json);
+    let servCol   = '—';
+    if (servs.length === 1) servCol = servs[0];
+    else if (servs.length > 1) servCol = `${servs.length} serviços`;
+
+    row.innerHTML = `
+      <div class="row-main">
+        <div class="ellipsis">${codigo}</div>
+        <div class="ellipsis">${razao}</div>
+        <div class="ellipsis" style="font-family:inherit">${cnpjFmt || '—'}</div>
+        <div class="ellipsis">${tipo}</div>
+  <div class="ellipsis">${cidade}-${uf}</div>
+        <div class="ellipsis">${servCol}</div>
+      </div>
+      <div class="list-actions">
+        <a class="btn" href="/parceiros/${p.id}" title="Ver"><i data-lucide="eye"></i></a>
+        <a class="btn" href="/parceiros/${p.id}/editar" title="Editar"><i data-lucide="edit"></i></a>
+        <button class="btn danger" type="button" data-id="${p.id}" data-name="${razao.replace(/"/g,'&quot;')}" data-action="deletar" title="Deletar">
+          <i data-lucide="trash-2"></i>
+        </button>
+      </div>
+    `;
+    return row;
+  }
+
+  // ===== Filtro + Busca + Ordenação =====
+  function matchesFilters(p){
+    if (filters.tipo.size){
+      const v = safe(p.tipo);
+      if (!filters.tipo.has(v)) return false;
+    }
+    if (filters.cidade.size){
+      const v = safe(p.cidade);
+      if (!filters.cidade.has(v)) return false;
+    }
+    if (filters.uf.size){
+      const v = safe(p.estado || p.uf).toUpperCase();
+      if (!filters.uf.has(v)) return false;
+    }
+    if (filters.ativo.size){
+      const v = p.ativo ? 'Sim':'Não';
+      if (!filters.ativo.has(v)) return false;
+    }
+    if (filters.servico.size){
+      const arr = parseServicos(p.servicos_json);
+      if (!arr.some(s=> filters.servico.has(String(s)))) return false;
+    }
+    return true;
+  }
+
+  function getFilteredSortedData(){
+    const q = (ui.busca.value || '').toLowerCase();
+
+    let arr = PARC_DATA.filter(p=>{
+      if (!matchesFilters(p)) return false;
+      if (!q) return true;
+
+      const campos = [
+        safe(p.razao_social), safe(p.cnpj),
+        safe(p.tipo), safe(p.cidade), safe(p.estado || p.uf),
+        safe(p.contato_nome), safe(p.contato_email), safe(p.contato_telefone),
+        safe(p.email), safe(p.telefone), safe(p.contato),
+        parseServicos(p.servicos_json).join(' ')
+      ].join(' ').toLowerCase();
+
+      return campos.includes(q);
+    });
+
+    const fd = fieldDef(sortField);
+    arr.sort((a,b)=>{
+      const va = fd.get(a), vb = fd.get(b);
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return sortDir === 'asc' ? (va - vb) : (vb - va);
+      }
+      const cmp = String(va).localeCompare(String(vb), 'pt-BR', { sensitivity:'base', numeric:true });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return arr;
+  }
+
+  function renderParceiros(list){
+    ui.list.innerHTML = '';
+    if (!list || list.length === 0){
+      ui.vazio.style.display = '';
+      icones();
+      return;
+    }
+    ui.vazio.style.display = 'none';
+    for (const p of list) ui.list.appendChild(criaLinha(p));
+    icones();
+  }
+
+  async function carregaParceiros(){
+    ui.vazio.style.display = 'none';
+    try {
+      const r = await fetch('/api/parceiros');
+      if (!r.ok) throw new Error('Falha ao carregar parceiros');
+      PARC_DATA = await r.json();
+      updateSortChip();
+      updateFilterBadge();
+      renderParceiros(getFilteredSortedData());
+    } catch (e){
+      ui.vazio.style.display = '';
+      ui.vazio.textContent = 'Erro ao carregar parceiros.';
+      console.error(e);
+    }
+  }
+
+  // ===== Listeners =====
+  window.addEventListener('DOMContentLoaded', ()=>{
+    carregaParceiros();
+
+    ui.busca.addEventListener('input', ()=> renderParceiros(getFilteredSortedData()));
+
+    // Sort: toggle direção
+    ui.sortToggle.addEventListener('click', ()=>{
+      sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+      updateSortChip();
+      renderParceiros(getFilteredSortedData());
+    });
+
+    // Sort: menu de campos (USANDO App.Pop GLOBAL + TOGGLE)
+    ui.sortFieldBtn.addEventListener('click', (ev)=>{
+      if (ui.sortMenu && !ui.sortMenu.hidden) {
+        App.Pop.closeAll();
+        ui.sortFieldBtn.setAttribute('aria-expanded','false');
+        return;
+      }
+      renderSortMenu();
+      App.Pop.open(ui.sortMenu, ev.currentTarget.closest('.input-group') || ev.currentTarget);
+      ui.sortFieldBtn.setAttribute('aria-expanded','true');
+    });
+
+    // Filter: abrir popover (USANDO App.Pop GLOBAL + TOGGLE)
+    ui.filterBtn.addEventListener('click', (ev)=>{
+      if (ui.filterMenu && !ui.filterMenu.hidden) {
+        App.Pop.closeAll();
+        ui.filterBtn.setAttribute('aria-expanded','false');
+        return;
+      }
+      renderFilterProps();
+      renderFilterValues();
+      App.Pop.open(ui.filterMenu, ev.currentTarget.closest('.input-group') || ev.currentTarget);
+      ui.filterBtn.setAttribute('aria-expanded','true');
+      icones();
+    });
+
+    // Filter: aplicar
+    ui.filterApply.addEventListener('click', ()=>{
+      const key = filterActiveProp;
+      const selected = new Set();
+      ui.filterValues.querySelectorAll('input[type="checkbox"]:checked').forEach(ch => selected.add(ch.value));
+      filters[key] = selected;
+
+      updateFilterBadge();
+      App.Pop.closeAll();
+      ui.filterBtn.setAttribute('aria-expanded','false');
+      renderParceiros(getFilteredSortedData());
+    });
+
+    // Filter: limpar
+    ui.filterClearAll.addEventListener('click', ()=>{
+      Object.keys(filters).forEach(k => filters[k].clear());
+      ui.filterValues.querySelectorAll('input[type="checkbox"]').forEach(ch => ch.checked = false);
+      updateFilterBadge();
+      renderParceiros(getFilteredSortedData());
+    });
+
+    // Deletar (delegation)
+    document.body.addEventListener('click', async (ev)=>{
+      const btn = ev.target.closest('button[data-action="deletar"]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-id');
+      const nome = btn.getAttribute('data-name') || ('#'+id);
+      if (!confirm(`Deletar parceiro "${nome}"?`)) return;
+
+      try{
+        const r = await fetch(`/api/parceiros/${id}`, { method:'DELETE' });
+        if (r.status === 204){
+          PARC_DATA = PARC_DATA.filter(p => String(p.id) !== String(id));
+          renderParceiros(getFilteredSortedData());
+        } else {
+          const j = await r.json().catch(()=>({}));
+          alert(j.error || 'Falha ao deletar parceiro.');
+        }
+      }catch(e){
+        console.error(e);
+        alert('Erro de rede ao deletar parceiro.');
+      }
+    });
+
+    // ESC fecha via Pop global (acessibilidade)
+    document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') App.Pop.closeAll(); });
+  });
+</script>
+</div>
+{% endblock %}

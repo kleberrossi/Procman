@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == 'edit' %}
+    <title>Editar parceiro — Sistema de gestão</title>
+  {% elif mode == 'view' %}
+    <title>Ver parceiro — Sistema de gestão</title>
+  {% else %}
+    <title>Novo parceiro — Sistema de gestão</title>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<h1 class="main-title">
+  {% if mode == 'edit' %}Editar parceiro{% elif mode == 'view' %}Ver parceiro{% else %}Novo parceiro{% endif %}
+</h1>
+
+<form id="parceiros-form" class="form-cards" method="post"
+      action="{{ url_for('parceiros_new_page') if mode == 'new' else url_for('parceiros_edit_page', id=parceiro.id) }}">
+
+  <!-- Razão social -->
+  <div class="form-row">
+    <div class="row-label">Razão social*</div>
+    <div class="field-card">
+      <div class="field-chip"><i data-lucide="building-2"></i></div>
+      <input class="control" type="text" name="razao_social" required
+             value="{{ parceiro.razao_social if parceiro else '' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- CNPJ -->
+  <div class="form-row">
+    <div class="row-label">CNPJ*</div>
+    <div class="field-card">
+      <div class="field-chip"><i data-lucide="hash"></i></div>
+      <input class="control" type="text" name="cnpj" required
+             value="{{ parceiro.cnpj if parceiro else '' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- Código interno -->
+  <div class="form-row">
+    <div class="row-label">Código interno</div>
+    <div class="field-card">
+      <div class="field-chip"><i data-lucide="tag"></i></div>
+      <input class="control" type="text" name="codigo_interno"
+             value="{{ parceiro.codigo_interno if parceiro and parceiro.codigo_interno else '' }}"
+             placeholder="Opcional">
+    </div>
+  </div>
+
+  <!-- Endereço / Bairro -->
+  <div class="form-row">
+    <div class="row-label">Endereço / Bairro</div>
+    <div class="field-card split-endereco" id="card-endereco">
+      <div class="field-chip"><i data-lucide="map-pin"></i></div>
+      <input class="control" type="text" name="endereco"
+             value="{{ parceiro.endereco if parceiro else '' }}" placeholder="">
+      <div class="field-chip"><i data-lucide="map"></i></div>
+      <input class="control" type="text" name="bairro"
+             value="{{ parceiro.bairro if parceiro else '' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- Complemento / CEP -->
+  <div class="form-row">
+    <div class="row-label">Complemento / CEP</div>
+    <div class="field-card split-2" id="card-pais-complemento">
+      <div class="field-chip"><i data-lucide="home"></i></div>
+      <input class="control" type="text" name="complemento"
+             value="{{ parceiro.complemento if parceiro else '' }}" placeholder="Apto, sala, referência...">
+      <div class="field-chip"><i data-lucide="crosshair"></i></div>
+      <input class="control" type="text" name="cep"
+             value="{{ parceiro.cep if parceiro else '' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- Localização (Cidade / UF / País) -->
+  <div class="form-row">
+    <div class="row-label">Localização</div>
+    <div class="field-card split-3" id="card-cep-cidade-uf">
+      <div class="field-chip"><i data-lucide="navigation"></i></div>
+      <input class="control" type="text" name="cidade"
+             value="{{ parceiro.cidade if parceiro else '' }}" placeholder="">
+      <div class="field-chip"><i data-lucide="flag"></i></div>
+      <input class="control" type="text" name="uf"
+             value="{{ parceiro.uf if parceiro else '' }}" placeholder="">
+      <div class="field-chip"><i data-lucide="globe"></i></div>
+      <input class="control" type="text" name="pais"
+             value="{{ parceiro.pais if parceiro else 'Brasil' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- Contato (parceiro) -->
+  <div class="form-row">
+    <div class="row-label">Contato (parceiro)</div>
+    <div class="field-card">
+      <div class="field-chip"><i data-lucide="user-2"></i></div>
+      <input class="control" type="text" name="contato_nome"
+             value="{{ parceiro.contato_nome if parceiro else '' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- E-mail -->
+  <div class="form-row">
+    <div class="row-label">E-mail</div>
+    <div class="field-card">
+      <div class="field-chip"><i data-lucide="mail"></i></div>
+      <input class="control" type="email" name="email"
+             value="{{ parceiro.email if parceiro else '' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- Telefone -->
+  <div class="form-row">
+    <div class="row-label">Telefone</div>
+    <div class="field-card">
+      <div class="field-chip"><i data-lucide="phone"></i></div>
+      <input class="control" type="text" name="telefone"
+             value="{{ parceiro.telefone if parceiro else '' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- Responsável interno -->
+  <div class="form-row">
+    <div class="row-label">Responsável interno</div>
+    <div class="field-card">
+      <div class="field-chip"><i data-lucide="id-card"></i></div>
+      <input class="control" type="text" name="responsavel_interno"
+             value="{{ parceiro.responsavel_interno if parceiro else '' }}" placeholder="">
+    </div>
+  </div>
+
+  <!-- ======================= SERVIÇOS (CHIPS/PILLS) ======================= -->
+  <div class="form-row">
+    <div class="row-label">Serviços</div>
+
+    <!-- par 80/20: lista (chips) | adicionar -->
+    <div class="svc-pair">
+      <!-- Lista de serviços (chips) -->
+      <div class="field-card" id="svc-list-card">
+        <div class="field-chip"><i data-lucide="briefcase"></i></div>
+        <div class="control svcbox">
+          <div class="svc-list-wrap" id="svc-list-box">
+            <div id="servicos-chips" class="svc-pills"></div>
+            <!-- botão “−” posicionado dentro da caixa esquerda (estilo já no CSS) -->
+            <button type="button" id="chip-rem-servico" class="svc-round" title="Remover selecionado">
+              <i data-lucide="minus"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Adicionar serviço (input + botão) -->
+      <div class="field-card" id="svc-add-card">
+        <div class="field-chip"><i data-lucide="plus"></i></div>
+        <div class="control" style="display:flex; align-items:center; gap:8px;">
+          <input id="svc-add-input" type="text" placeholder="Novo serviço…" style="flex:1 1 auto; border:0; outline:0; background:transparent;">
+          <button class="btn pill" type="button" id="svc-add-btn" title="Adicionar">Adicionar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Valor serializado (usado no backend) -->
+    <input type="hidden" name="servicos_json" id="servicos_json"
+           value="{{ parceiro.servicos_json if parceiro and parceiro.servicos_json else '[]' }}">
+  </div>
+
+  <!-- Observações -->
+  <div class="form-row">
+    <div class="row-label">Observações</div>
+    <div class="field-card" style="grid-template-columns:40px 1fr;">
+      <div class="field-chip"><i data-lucide="file-text"></i></div>
+      <textarea class="control" name="observacoes" rows="4"
+                placeholder="Notas gerais, particularidades de faturamento, etc.">{{ parceiro.observacoes if parceiro else '' }}</textarea>
+    </div>
+  </div>
+
+  <!-- Ações -->
+  <div class="form-actions">
+    <a class="btn" href="{{ url_for('parceiros_page') }}"><i data-lucide="chevron-left"></i> Voltar</a>
+    {% if mode != 'view' %}
+      <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar</button>
+    {% endif %}
+  </div>
+</form>
+
+<script>
+(function(){
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  function icones(){ if (window.lucide) lucide.createIcons(); }
+
+  // ===== Estado / helpers
+  const inputHidden = $('#servicos_json');
+  let lista = [];
+  try {
+    const raw = inputHidden.value && inputHidden.value.trim() ? inputHidden.value : '[]';
+    const val = JSON.parse(raw);
+    lista = Array.isArray(val) ? val.filter(x => !!x).map(String) : [];
+  } catch(e){ lista = []; }
+
+  const chipsBox = $('#servicos-chips');
+  const addInput = $('#svc-add-input');
+  const addBtn   = $('#svc-add-btn');
+  const remBtn   = $('#chip-rem-servico');
+
+  let selecionado = null; // texto do chip selecionado
+
+  function syncHidden(){
+    inputHidden.value = JSON.stringify(lista);
+  }
+
+  function renderChips(){
+    chipsBox.innerHTML = '';
+    if (!lista.length){
+      const span = document.createElement('span');
+      span.className = 'muted';
+      span.textContent = 'Sem serviços adicionados.';
+      chipsBox.appendChild(span);
+      icones();
+      return;
+    }
+    lista.forEach(txt=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn pill';
+      b.textContent = String(txt);
+      b.addEventListener('click', ()=>{
+        selecionado = (selecionado === txt) ? null : txt;
+        // marcar visualmente selecionado
+        $$('.btn.pill', chipsBox).forEach(el=> el.classList.remove('is-selected'));
+        if (selecionado){
+          b.classList.add('is-selected');
+        }
+      });
+      chipsBox.appendChild(b);
+    });
+    icones();
+  }
+
+  function addServico(){
+    const v = (addInput.value || '').trim();
+    if (!v) return;
+    if (!lista.includes(v)){
+      lista.push(v);
+      syncHidden();
+      renderChips();
+    }
+    addInput.value = '';
+    selecionado = null;
+  }
+
+  function removeSelecionado(){
+    if (!selecionado) return;
+    lista = lista.filter(x => x !== selecionado);
+    selecionado = null;
+    syncHidden();
+    renderChips();
+  }
+
+  addBtn.addEventListener('click', addServico);
+  addInput.addEventListener('keydown', (e)=>{ if (e.key === 'Enter'){ e.preventDefault(); addServico(); }});
+  remBtn.addEventListener('click', removeSelecionado);
+
+  // inicia UI
+  renderChips();
+  icones();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if mode == 'edit' %}<title>Editar embalagem — Sistema</title>
+  {% elif mode == 'view' %}<title>Ver embalagem — Sistema</title>
+  {% else %}<title>Nova embalagem — Sistema</title>{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set is_view = (mode == 'view') %}
+{% set is_edit = (mode == 'edit') %}
+{% set is_new  = (mode == 'new' or not mode) %}
+{% set ro = 'readonly' if is_view else '' %}
+{% set dis = 'disabled' if is_view else '' %}
+
+<h1 class="main-title">
+  {% if is_edit %}Editar embalagem{% elif is_view %}Detalhes da embalagem{% else %}Nova embalagem{% endif %}
+</h1>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}
+    {% for cat, msg in msgs %}
+      <div class="flash">{{ msg }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+{% if error %}
+  <div class="flash">{{ error }}</div>
+{% endif %}
+
+{# action dinâmica: new -> /embalagens/novo | edit -> /embalagens/<id> (POST) | view -> sem POST #}
+<form id="embalagens-form" method="post"
+      action="{% if is_new %}{{ url_for('embalagens_new_page') }}
+              {% elif is_edit and embalagem %}{{ url_for('embalagens_update', id=embalagem.get('id')) }}
+              {% else %}#{% endif %}"
+      enctype="multipart/form-data"
+      novalidate>
+
+  <!-- TOGGLEBAR (Impressão / Fita / Resistência / Transparência) -->
+  <div class="mini-togglebar" id="emb-togglebar" {% if is_view %}aria-disabled="true"{% endif %}>
+    <div class="tg" data-key="impresso">
+      <span class="tg-label"><i data-lucide="stamp"></i> Impressão</span>
+      <div class="seg">
+        <button type="button" class="seg-btn" data-toggle="impresso" data-value="0">Não</button>
+        <button type="button" class="seg-btn" data-toggle="impresso" data-value="1">Sim</button>
+      </div>
+    </div>
+
+    <div class="tg" data-key="fita">
+      <span class="tg-label"><i data-lucide="tape"></i> Fita</span>
+      <div class="seg">
+        <button type="button" class="seg-btn" data-toggle="fita" data-value="0">Não</button>
+        <button type="button" class="seg-btn" data-toggle="fita" data-value="1">Sim</button>
+      </div>
+    </div>
+
+    <div class="tg" data-key="resistencia">
+      <span class="tg-label"><i data-lucide="shield"></i> Resistência</span>
+      <div class="seg">
+        <button type="button" class="seg-btn" data-toggle="resistencia" data-value="0">Não</button>
+        <button type="button" class="seg-btn" data-toggle="resistencia" data-value="1">Sim</button>
+      </div>
+    </div>
+
+    <div class="tg" data-key="transparencia">
+      <span class="tg-label"><i data-lucide="sun"></i> Transparência</span>
+      <div class="seg">
+        <button type="button" class="seg-btn" data-toggle="transparencia" data-value="0">Não</button>
+        <button type="button" class="seg-btn" data-toggle="transparencia" data-value="1">Sim</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-cards">
+
+    <!-- Código / Revisão -->
+    <div class="form-row">
+      <label class="field-label" for="embalagem_code">Código / Revisão*</label>
+      <div class="field-card split-2" id="card-codrev">
+        <div class="field-chip"><i data-lucide="qr-code"></i></div>
+        <input class="control" type="text" id="embalagem_code" name="embalagem_code"
+               required placeholder="Ex.: NP-000123"
+               value="{{ request.form.get('embalagem_code', (embalagem.get('embalagem_code') if embalagem else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="repeat-2"></i></div>
+        <input class="control" type="text" id="rev" name="rev"
+               placeholder="Ex.: R00"
+               value="{{ request.form.get('rev', (embalagem.get('rev') if embalagem else '')) }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Cliente -->
+    <div class="form-row">
+      <label class="field-label" for="cliente_id">Cliente*</label>
+      <div class="field-card" id="card-cliente">
+        <div class="field-chip"><i data-lucide="building-2"></i></div>
+        <select class="control" id="cliente_id" name="cliente_id" required {{ dis }}>
+          <option value="">Selecione…</option>
+          {% for cli in clientes %}
+            {% set optv = (cli.id if cli.id is not none else cli['id']) %}
+            {% set current = request.form.get('cliente_id', (embalagem.get('cliente_id') if embalagem else '')) %}
+            <option value="{{ optv }}"
+              {% if (current|string) == (optv|string) %}selected{% endif %}>
+              {{ cli.razao_social }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Material / Espessura -->
+    <div class="form-row">
+      <label class="field-label" for="material">Material / Espessura (µm)*</label>
+      <div class="field-card split-2" id="card-material">
+        <div class="field-chip"><i data-lucide="layers"></i></div>
+        <input class="control" type="text" id="material" name="material"
+               required placeholder="Ex.: PEBD, PEAD, BOPP…"
+               value="{{ request.form.get('material', (embalagem.get('material') if embalagem else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="ruler"></i></div>
+        <input class="control" type="number" step="1" min="0" id="espessura_um" name="espessura_um"
+               placeholder="Ex.: 50"
+               value="{{ request.form.get('espessura_um', (embalagem.get('espessura_um') if embalagem else '')) }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Dimensões L × A -->
+    <div class="form-row">
+      <label class="field-label">Dimensões L × A (mm)</label>
+      <div class="field-card split-2" id="card-dimensoes">
+        <div class="field-chip"><i data-lucide="arrow-left-right"></i></div>
+        <input class="control" type="number" step="1" min="0" id="largura_mm" name="largura_mm"
+               placeholder="Largura"
+               value="{{ request.form.get('largura_mm', (embalagem.get('largura_mm') if embalagem else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <div class="field-chip"><i data-lucide="arrow-up-down"></i></div>
+        <input class="control" type="number" step="1" min="0" id="altura_mm" name="altura_mm"
+               placeholder="Altura"
+               value="{{ request.form.get('altura_mm', (embalagem.get('altura_mm') if embalagem else '')) }}"
+               {{ ro }} {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Sanfona / Aba / Fita (3 cartões iguais lado a lado) -->
+    <div class="form-row">
+      <label class="field-label">Sanfona / Aba / Fita</label>
+      <div class="multi-card-3">
+        <!-- Sanfona -->
+        <div class="field-card" id="card-sanfona">
+          <div class="field-chip"><i data-lucide="chevrons-left-right"></i></div>
+          <input class="control" type="number" step="1" min="0" id="sanfona_mm" name="sanfona_mm"
+                 placeholder="Sanfona (mm)"
+                 value="{{ request.form.get('sanfona_mm', (embalagem.get('sanfona_mm') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+        </div>
+
+        <!-- Aba -->
+        <div class="field-card" id="card-aba">
+          <div class="field-chip"><i data-lucide="square"></i></div>
+          <input class="control" type="number" step="1" min="0" id="aba_mm" name="aba_mm"
+                 placeholder="Aba (mm)"
+                 value="{{ request.form.get('aba_mm', (embalagem.get('aba_mm') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+        </div>
+
+        <!-- Fita (toggle controla este card) -->
+        <div class="field-card" id="card-fita">
+          <div class="field-chip"><i data-lucide="tape"></i></div>
+          <input class="control" type="text" id="fita_tipo" name="fita_tipo"
+                 placeholder="Tipo de fita (ex.: nenhuma, simples, dupla)"
+                 value="{{ request.form.get('fita_tipo', (embalagem.get('fita_tipo') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+        </div>
+      </div>
+    </div>
+
+    <!-- Impressão (toggle) + Anexo -->
+    <div class="form-row">
+      <label class="field-label" for="impresso">Impressão / Layout</label>
+      <div class="field-card file-attach" id="card-impresso">
+        <div class="field-chip"><i data-lucide="stamp"></i></div>
+
+        <!-- Nome/URL do layout (exibição) -->
+        <input class="control" type="text" id="layout_png" name="layout_png"
+               placeholder="Layout (PNG/JPG) – opcional"
+               value="{{ request.form.get('layout_png', (embalagem.get('layout_png') if embalagem else '')) }}"
+               {{ ro }} {{ dis }}>
+
+        <!-- Botão de anexar como chip -->
+        <label class="attach-chip" for="layout_file" id="attach-label">
+          <i data-lucide="paperclip"></i> Anexar
+        </label>
+        <input type="file" id="layout_file" name="layout_file" accept="image/*" style="display:none" {{ dis }}>
+      </div>
+    </div>
+
+    <!-- Transparência / Resistência — 2 cards independentes (50/50) -->
+    <div class="form-row">
+      <label class="field-label">Transparência / Resistência</label>
+      <div class="multi-card-2">
+        <!-- Card: Transparência (%) -->
+        <div class="field-card" id="card-transparencia">
+          <div class="field-chip"><i data-lucide="sun-medium"></i></div>
+          <input class="control" type="number" step="1" min="0" id="transparencia" name="transparencia"
+                 placeholder="Transparência (%)"
+                 value="{{ request.form.get('transparencia', (embalagem.get('transparencia') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+        </div>
+
+        <!-- Card: Resistência -->
+        <div class="field-card" id="card-resistencia">
+          <div class="field-chip"><i data-lucide="shield"></i></div>
+          <input class="control" type="text" id="resistencia_mecanica" name="resistencia_mecanica"
+                 placeholder="Alta / Média / Baixa (ou descrição)"
+                 value="{{ request.form.get('resistencia_mecanica', (embalagem.get('resistencia_mecanica') if embalagem else '')) }}"
+                 {{ ro }} {{ dis }}>
+        </div>
+      </div>
+    </div>
+
+    <!-- Observações -->
+    <div class="form-row">
+      <label class="field-label" for="observacoes">Observações</label>
+      <div class="field-card" id="card-obs">
+        <div class="field-chip"><i data-lucide="sticky-note"></i></div>
+        <textarea class="control" id="observacoes" name="observacoes" rows="3"
+                  placeholder="Notas gerais, especificidades, etc."
+                  {{ ro }} {{ dis }}>{{ request.form.get('observacoes', (embalagem.get('observacoes') if embalagem else '')) }}</textarea>
+      </div>
+    </div>
+
+    <!-- Hidden: flags de toggle para submissão -->
+    <input type="hidden" name="impresso" id="impresso_flag" value="0">
+    <input type="hidden" name="fita_on" id="fita_flag" value="0">
+    <input type="hidden" name="resistencia_on" id="resistencia_flag" value="0">
+    <input type="hidden" name="transparencia_on" id="transparencia_flag" value="0">
+
+    <!-- Ações -->
+    <div class="form-actions">
+      <a class="btn" href="{{ url_for('embalagens_page') }}"><i data-lucide="chevron-left"></i> Voltar</a>
+
+      {% if not is_view %}
+        <button class="btn primary" type="submit"><i data-lucide="save"></i> Salvar</button>
+      {% else %}
+        {% if embalagem %}
+          <a class="btn" href="{{ url_for('embalagens_edit_page', id=embalagem.get('id')) }}">
+            <i data-lucide="pencil"></i> Editar
+          </a>
+        {% endif %}
+      {% endif %}
+    </div>
+
+  </div>
+</form>
+
+<script>
+  function icones(){ if (window.lucide) lucide.createIcons(); }
+
+  // Util: habilita/desabilita um card e seus inputs
+  function setCardEnabled(cardId, enabled){
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    card.classList.toggle('is-off', !enabled);
+    card.querySelectorAll('.control, input, select, textarea').forEach(el=>{
+      el.disabled = !enabled || el.hasAttribute('data-always-disabled');
+      if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT'){
+        if (!enabled) el.setAttribute('aria-disabled','true'); else el.removeAttribute('aria-disabled');
+      }
+    });
+    // Especial: botão de anexar (impressão)
+    if (cardId === 'card-impresso'){
+      const attach = document.getElementById('attach-label');
+      if (attach){ attach.style.pointerEvents = enabled ? 'auto' : 'none'; attach.style.opacity = enabled ? '1' : '.6'; }
+      const file = document.getElementById('layout_file');
+      if (file) file.disabled = !enabled;
+    }
+  }
+
+  function setToggle(key, val){
+    // Atualiza UI dos botões
+    document.querySelectorAll('.seg-btn[data-toggle="'+key+'"]').forEach(btn=>{
+      btn.classList.toggle('active', btn.getAttribute('data-value') === String(val));
+    });
+
+    // Flags hidden
+    if (key === 'impresso')       document.getElementById('impresso_flag').value      = String(val);
+    if (key === 'fita')           document.getElementById('fita_flag').value          = String(val);
+    if (key === 'resistencia')    document.getElementById('resistencia_flag').value   = String(val);
+    if (key === 'transparencia')  document.getElementById('transparencia_flag').value = String(val);
+
+    // Habilita/desabilita cards
+    if (key === 'impresso')       setCardEnabled('card-impresso',      !!Number(val));
+    if (key === 'fita')           setCardEnabled('card-fita',          !!Number(val));
+    if (key === 'resistencia')    setCardEnabled('card-resistencia',   !!Number(val));
+    if (key === 'transparencia')  setCardEnabled('card-transparencia', !!Number(val));
+  }
+
+  // Estado inicial vindo do servidor
+  function estadoInicial(){
+    // Impressão
+    const impFromForm = "{{ request.form.get('impresso') or '' }}";
+    const impFromData = "{{ (embalagem.get('impresso') if embalagem else '') }}";
+    const impVal = (impFromForm === '1') || (impFromData === '1') || (impFromData === 'True') || (impFromData === 'true');
+
+    // Fita: verdadeiro se houver valor preenchido diferente de vazio/nenhuma
+    const fitaValStr = "{{ request.form.get('fita_tipo', (embalagem.get('fita_tipo') if embalagem else '')) }}";
+    const fitaVal = !!(fitaValStr && fitaValStr.toLowerCase() !== 'nenhuma');
+
+    // Resistência: verdadeiro se houver texto
+    const resValStr = "{{ request.form.get('resistencia_mecanica', (embalagem.get('resistencia_mecanica') if embalagem else '')) }}";
+    const resVal = String(resValStr).trim() !== '';
+
+    // Transparência: considerar '0' como válido (portanto ativa)
+    const transValStr = "{{ request.form.get('transparencia', (embalagem.get('transparencia') if embalagem else '')) }}";
+    const transVal = String(transValStr).trim() !== '';
+
+    return { impresso: impVal, fita: fitaVal, resistencia: resVal, transparencia: transVal };
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    icones();
+
+    const init = estadoInicial();
+    setToggle('impresso',      init.impresso ? 1 : 0);
+    setToggle('fita',          init.fita ? 1 : 0);
+    setToggle('resistencia',   init.resistencia ? 1 : 0);
+    setToggle('transparencia', init.transparencia ? 1 : 0);
+
+    // Bloqueia interações se for view
+    const tb = document.getElementById('emb-togglebar');
+    if (tb && tb.getAttribute('aria-disabled') === 'true'){
+      tb.querySelectorAll('.seg-btn').forEach(b=> b.disabled = true);
+    } else {
+      document.body.addEventListener('click', (ev)=>{
+        const btn = ev.target.closest('.seg-btn');
+        if (!btn) return;
+        const key = btn.getAttribute('data-toggle');
+        const val = btn.getAttribute('data-value');
+        setToggle(key, val);
+      });
+    }
+
+    // Quando selecionar arquivo, colocar o nome no input de exibição
+    const file = document.getElementById('layout_file');
+    if (file){
+      file.addEventListener('change', ()=>{
+        const input = document.getElementById('layout_png');
+        if (file.files && file.files[0] && input){
+          input.value = file.files[0].name;
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

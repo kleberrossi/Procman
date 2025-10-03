@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "macros_btn_list_add.html" import btn_lista_adicionar %}
+{% block content %}
+<div class="app-track pedidos-list-page">
+  <header class="page-header">
+    <div class="page-head-left">
+      <h1 class="main-title">Pedidos</h1>
+      <div id="pedidos-subtitle" class="sub-title" aria-live="polite"></div>
+    </div>
+    <div class="page-head-actions">
+      <button type="button" id="btn-reload-pedidos" class="btn" aria-label="Recarregar lista de pedidos"><i data-lucide="rotate-cw"></i></button>
+    </div>
+  </header>
+  <div class="toolbar" id="pedidos-toolbar" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="filters">
+      <div class="input-group" id="grp-busca-pedidos">
+        <span class="input-chip"><i data-lucide="search"></i></span>
+        <input id="busca-pedidos" type="search" placeholder="Buscar pedido, cliente..." aria-label="Buscar pedido ou cliente">
+      </div>
+      <select id="filtro-status" aria-label="Filtrar por status">
+        <option value="">Status</option>
+        <option value="RASCUNHO">Rascunho</option>
+        <option value="APROVADO">Aprovado</option>
+        <option value="EM_EXECUCAO">Em execução</option>
+        <option value="CONCLUIDO">Concluído</option>
+        <option value="CANCELADO">Cancelado</option>
+      </select>
+      <select id="filtro-rep" aria-label="Filtrar por representante">
+        <option value="">Representante</option>
+      </select>
+      <button id="btn-filtrar-pedidos" class="btn" type="button"><i data-lucide="filter"></i> Filtrar</button>
+    </div>
+    {{ btn_lista_adicionar("Pedido", href=url_for('pedido_new_page'), id="btn-adicionar-pedido") }}
+  </div>
+  <div class="pedidos-cards-scroll" id="pedidos-scroll-container">
+    <div id="pedidos-list" class="pedidos-cards" role="list">
+      <div class="pedido-card header" role="presentation">
+        <div class="cell data_emissao">Solicitação</div>
+        <div class="cell data_prevista">Entrega</div>
+        <div class="cell numero">Nº</div>
+        <div class="cell cliente">Cliente</div>
+        <div class="cell embalagem_code">Código</div>
+        <div class="cell quantidade">Quantidade</div>
+        <div class="cell preco_base">Preço base</div>
+        <div class="cell valor">Valor total</div>
+        <div class="cell status">Status</div>
+      </div>
+    </div>
+    <p id="pedidos-sem-dados" class="empty-hint" hidden>Nenhum pedido cadastrado.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{# templates/partials/_notice.html #}
+{% set flashes = get_flashed_messages(with_categories=true) %}
+{% if flashes %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      {% for cat, msg in flashes %}
+      (function(){
+        var mapped = (function(c){
+          if (['success','ok'].includes(c)) return 'success';
+          if (['error','danger','err'].includes(c)) return 'error';
+          if (['warning','warn','alert'].includes(c)) return 'warning';
+          if (['info','notice'].includes(c)) return 'info';
+          return 'info';
+        })({{ cat|tojson }});
+
+        var m = {{ msg|tojson }};
+        var payload = (typeof m === 'object' && m) ? m : { message: String(m) };
+        if (!payload.type)    payload.type = mapped;
+        if (!payload.timeout) payload.timeout = 6000;  // auto-hide
+        window.dispatchEvent(new CustomEvent('notify', { detail: payload }));
+      })();
+      {% endfor %}
+    });
+  </script>
+{% endif %}
